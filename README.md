@@ -12,6 +12,13 @@
 
 Machdown is a Chrome extension that extracts article content from web pages and converts it to Markdown. It uses [@mozilla/readability](https://github.com/mozilla/readability) for content extraction and [Turndown](https://github.com/mixmark-io/turndown) for HTML-to-Markdown conversion.
 
+## Screenshots
+
+<p align="center">
+  <img src="assets/screenshots/popup.png" alt="Machdown popup" width="300" />
+  <img src="assets/screenshots/save-multiple.png" alt="Batch clipping view" width="500" />
+</p>
+
 ## Features
 
 ### Clipping
