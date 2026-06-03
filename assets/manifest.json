@@ -26,8 +26,5 @@
     }
   },
   "permissions": ["storage", "windows", "activeTab", "scripting", "downloads", "tabs"],
-  "host_permissions": [
-    "*://*/*"
-  ],
-  "optional_host_permissions": ["<all_urls>"]
+  "optional_host_permissions": ["http://*/*", "https://*/*"]
 }

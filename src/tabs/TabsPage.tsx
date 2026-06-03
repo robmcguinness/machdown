@@ -1,10 +1,10 @@
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import type { ClipResponse, ClipResult, ClipSettings } from '../types/clip';
+import { buildFilename, generateMarkdown } from '@lib/markdown';
+import { strToU8, zipSync } from 'fflate';
 import { useCallback, useEffect, useState } from 'react';
 import type { AppSettings } from '@common/appTypes';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { buildFilename, generateMarkdown } from '@lib/markdown';
-import { zipSync, strToU8 } from 'fflate';
 import { useSharedSettings } from '@common/useSharedSettings';
 
 type TabEntry = {
@@ -21,7 +21,18 @@ type ExportState =
   | { phase: 'clipping'; current: number; total: number; errors: string[] }
   | { phase: 'done'; errors: string[] };
 
-const NON_CLIPPABLE = /^(chrome|chrome-extension|chrome-untrusted|edge|brave|vivaldi|opera|about|devtools|file):|^https?:\/\/chrome\.google\.com\/webstore/;
+const CHROME_WEBSTORE = /^https?:\/\/chrome\.google\.com\/webstore/;
+
+const getHostPermissionPattern = (url: string): string | null => {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    if (CHROME_WEBSTORE.test(url)) return null;
+    return `${parsed.protocol}//${parsed.hostname}/*`;
+  } catch {
+    return null;
+  }
+};
 
 const toClipSettings = (s: AppSettings): ClipSettings => ({
   headingStyle: s.headingStyle,
@@ -69,8 +80,8 @@ export const TabsPage = () => {
             title: t.title || t.url,
             url: t.url,
             favIconUrl: t.favIconUrl,
-            selected: !NON_CLIPPABLE.test(t.url),
-            clippable: !NON_CLIPPABLE.test(t.url),
+            selected: getHostPermissionPattern(t.url) !== null,
+            clippable: getHostPermissionPattern(t.url) !== null,
           })),
       );
     });
@@ -96,9 +107,13 @@ export const TabsPage = () => {
     const selected = tabs.filter((t) => t.selected);
     if (selected.length === 0) return;
 
-    const hasPermission = await chrome.permissions.contains({ origins: ['<all_urls>'] });
+    const origins = Array.from(
+      new Set(selected.map((tab) => getHostPermissionPattern(tab.url)).filter((origin): origin is string => origin !== null)),
+    );
+
+    const hasPermission = await chrome.permissions.contains({ origins });
     if (!hasPermission) {
-      const granted = await chrome.permissions.request({ origins: ['<all_urls>'] });
+      const granted = await chrome.permissions.request({ origins });
       if (!granted) {
         setExportState({
           phase: 'done',
@@ -120,6 +135,8 @@ export const TabsPage = () => {
       setExportState({ phase: 'clipping', current: i + 1, total: selected.length, errors: [...errors] });
 
       try {
+        // Keep clipping sequential so progress and per-tab failures stay predictable.
+        // eslint-disable-next-line no-await-in-loop
         const clip = await clipTab(tab.id, clipSettings);
         let name = buildFilename(clip, settings.filenamePattern);
         if (usedNames.has(name)) {
