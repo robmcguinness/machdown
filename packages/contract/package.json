@@ -1,0 +1,32 @@
+{
+  "name": "@machdown/contract",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./constants": {
+      "source": "./src/constants.ts",
+      "types": "./dist/constants.d.ts",
+      "default": "./dist/constants.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsc -b --watch"
+  },
+  "dependencies": {
+    "@orpc/contract": "2.0.0-beta.31",
+    "@orpc/openapi": "2.0.0-beta.31",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@rm3/typescript-config": "link:../../../rm3-shared/packages/typescript-config",
+    "typescript": "^7.0.2"
+  }
+}

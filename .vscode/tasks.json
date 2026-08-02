@@ -1,0 +1,15 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      // Terminal ▸ Run Task ▸ "daemon: dev (watch)" — restarts on file change.
+      // No build dependency: --conditions=source resolves workspace imports to src/*.ts.
+      "label": "daemon: dev (watch)",
+      "type": "shell",
+      "command": "pnpm --filter @machdown/daemon dev",
+      "isBackground": true,
+      "presentation": { "panel": "dedicated", "reveal": "always" },
+      "problemMatcher": []
+    }
+  ]
+}

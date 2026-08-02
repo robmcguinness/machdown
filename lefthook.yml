@@ -1,0 +1,5 @@
+# Shared hooks live in @rm3/lefthook-config. Run `pnpm lefthook install` after `pnpm install`.
+extends:
+  - node_modules/@rm3/lefthook-config/lefthook.yml
+# Repo-specific jobs go here. Use names that do not collide with oxfmt / oxlint / no-focused-tests,
+# because extended files override same-named local jobs.

@@ -2,22 +2,13 @@
   "files": [],
   "references": [
     {
-      "path": "./tsconfig.app.json"
+      "path": "./packages/contract"
     },
     {
-      "path": "./tsconfig.node.json"
+      "path": "./apps/extension"
+    },
+    {
+      "path": "./apps/daemon"
     }
-  ],
-  "compilerOptions": {
-    "types": ["vite/client", "chrome"],
-    "typeRoots": ["./node_modules/@types"],
-    "resolveJsonModule": true,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "strictNullChecks": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"]
-    }
-  }
+  ]
 }

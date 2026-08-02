@@ -16,3 +16,6 @@ lerna-debug.log*
 
 node_modules
 build
+dist
+
+apps/daemon/.env

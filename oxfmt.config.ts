@@ -1,11 +1,9 @@
 import { defineConfig } from 'oxfmt';
 
+import { rm3Fmt } from '@rm3/oxfmt-config';
+
 export default defineConfig({
-  $schema: './node_modules/oxfmt/configuration_schema.json',
-  printWidth: 100,
-  singleQuote: true,
-  jsxSingleQuote: true,
-  semi: true,
-  endOfLine: 'lf',
-  ignorePatterns: ['dist', 'build', 'node_modules', '.vite', '.vscode'],
+  ...rm3Fmt,
+  // Generated schema tests compare byte-for-byte against JSON.stringify(..., 2).
+  ignorePatterns: [...rm3Fmt.ignorePatterns, '.vscode', 'apps/daemon/daemon.schema.json'],
 });

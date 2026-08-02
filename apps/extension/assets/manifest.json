@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Machdown",
+  "author": {
+    "email": "robert.mcguinness.iii@gmail.com"
+  },
+  "version": "0",
+  "icons": {
+    "16": "./icon/16x16.png",
+    "32": "./icon/32x32.png",
+    "48": "./icon/48x48.png",
+    "128": "./icon/128x128.png"
+  },
+  "description": "Clip web pages as clean Markdown",
+  "background": {
+    "type": "module",
+    "service_worker": "./service_worker.js"
+  },
+  "options_page": "src/options/index.html",
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_title": "Clip this page",
+    "default_icon": {
+      "16": "./icon/16x16.png",
+      "32": "./icon/32x32.png"
+    }
+  },
+  "permissions": ["storage", "windows", "activeTab", "scripting", "downloads", "tabs"],
+  "host_permissions": ["http://localhost/*", "http://127.0.0.1/*"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"]
+}
