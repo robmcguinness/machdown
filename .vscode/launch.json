@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // F5 target. No --watch: the debugger owns restarts.
+      "name": "Debug daemon",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/apps/daemon/src/main.ts",
+      "cwd": "${workspaceFolder}/apps/daemon",
+      // .env resolves relative to cwd; the source condition skips dist.
+      "runtimeArgs": ["--conditions=source", "--env-file-if-exists=.env"],
+      // The pairing code prints to stdout, so use a real terminal.
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Debug daemon (pair)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/apps/daemon/src/main.ts",
+      "cwd": "${workspaceFolder}/apps/daemon",
+      "runtimeArgs": ["--conditions=source", "--env-file-if-exists=.env"],
+      "args": ["--pair"],
+      "console": "integratedTerminal"
+    }
+  ]
+}

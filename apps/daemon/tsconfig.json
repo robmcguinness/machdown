@@ -1,0 +1,9 @@
+{
+  "extends": "@rm3/typescript-config/node-app.json",
+  "include": ["scripts", "src"],
+  "references": [
+    {
+      "path": "../../packages/contract"
+    }
+  ]
+}

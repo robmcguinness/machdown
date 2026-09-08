@@ -1,3 +1,22 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# @tobilu/qmd runs embedded in the daemon, so its native deps have to build:
+# better-sqlite3 for the index, node-llama-cpp for the local models, and
+# tree-sitter for AST-aware chunking.
+allowBuilds:
+  better-sqlite3: true
+  lefthook: true
+  msw: true
+  node-llama-cpp: true
+  tree-sitter-go: true
+  tree-sitter-javascript: true
+  tree-sitter-python: true
+  tree-sitter-rust: true
+  tree-sitter-typescript: true
+
 onlyBuiltDependencies:
   - esbuild
+  - lefthook
   - msw
