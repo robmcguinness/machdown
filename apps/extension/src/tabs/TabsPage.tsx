@@ -1,9 +1,15 @@
 import { extractBatch } from '#lib/batch.ts';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '#components/ui/card.tsx';
-import type { ClipPayload, SaveClipsResult, SuggestItem } from '@machdown/contract';
+import type {
+  BookmarkPayload,
+  ClipPayload,
+  SaveBookmarksResult,
+  SaveClipsResult,
+  SuggestItem,
+} from '@machdown/contract';
 import type { ClipResponse, ClipResult, ClipSettings } from '#types/clip.ts';
 import { Popover, PopoverContent, PopoverTrigger } from '#components/ui/popover.tsx';
-import { buildFilename, generateMarkdown } from '#lib/markdown.ts';
+import { buildFilename, downloadTabLinks, generateMarkdown } from '#lib/markdown.ts';
 import { describeFailure, toDaemonFailure } from '#common/daemonClient.ts';
 import { getHostPermissionPattern } from '#common/pageTarget.ts';
 import { strToU8 } from 'fflate';
@@ -38,10 +44,18 @@ type ExportState =
   | { phase: 'idle' }
   | { current: number; errors: string[]; phase: 'clipping'; total: number }
   | { errors: string[]; phase: 'saving' | 'compressing'; total: number }
-  | { errors: string[]; phase: 'done'; saved?: SaveClipsResult };
+  | { bookmarked?: SaveBookmarksResult; errors: string[]; phase: 'done'; saved?: SaveClipsResult };
 
 /** Where a batch goes. The ZIP path is unchanged and stays the fallback. */
 type Destination = 'repo' | 'zip';
+
+/**
+ * What a batch produces. `clip` extracts every page; `bookmark` saves only the
+ * link, so it needs no host permission and no extraction — forty tabs become
+ * forty stub files and one commit, or one markdown list when the daemon is
+ * away.
+ */
+type Mode = 'clip' | 'bookmark';
 
 /** Display-only site name for the suggestion request. */
 const hostOf = (url: string): string => {
@@ -103,6 +117,7 @@ export const TabsPage = () => {
   const [exportState, setExportState] = useState<ExportState>({ phase: 'idle' });
   const [categories, setCategories] = useState<string[] | null>(null);
   const [destination, setDestination] = useState<Destination | null>(null);
+  const [mode, setMode] = useState<Mode>('clip');
   const { setSettings, settings } = useSharedSettings();
   const { canSaveToRepo, client, status: daemon } = useDaemonStatus();
 
@@ -355,6 +370,51 @@ export const TabsPage = () => {
     setExportState({ errors, phase: 'done' });
   }, [tabs, settings, activeDestination, activeCategories, categoriesFor, client, setSettings]);
 
+  /**
+   * Saves every selected tab as a link-only bookmark in one go.
+   *
+   * Nothing is extracted, so this needs no host permission and finishes in one
+   * request. The repository path is one `bookmarks.save` call — and therefore
+   * one commit — mirroring the clip batch. Without the daemon the links go into
+   * a single markdown file instead, since there is no stub file to write.
+   */
+  const handleBookmarkAll = useCallback(async () => {
+    const selected = tabs.filter((t) => t.selected);
+    if (selected.length === 0) {
+      return;
+    }
+
+    setExportState({ errors: [], phase: 'saving', total: selected.length });
+
+    if (activeDestination !== 'repo') {
+      try {
+        await downloadTabLinks(selected.map((tab) => ({ title: tab.title, url: tab.url })));
+        setExportState({ errors: [], phase: 'done' });
+      } catch (error) {
+        setExportState({
+          errors: [error instanceof Error ? error.message : 'Download could not be started'],
+          phase: 'done',
+        });
+      }
+      return;
+    }
+
+    const bookmarks: BookmarkPayload[] = selected.map((tab) => ({
+      categories: [...categoriesFor(tab)],
+      siteName: hostOf(tab.url),
+      title: tab.title,
+      url: tab.url,
+    }));
+
+    try {
+      const bookmarked = await client.bookmarks.save({ bookmarks });
+      setSettings({ lastUsedCategories: activeCategories });
+      setExportState({ bookmarked, errors: [], phase: 'done' });
+    } catch (error) {
+      setExportState({ errors: [describeFailure(toDaemonFailure(error))], phase: 'done' });
+    }
+  }, [tabs, activeDestination, activeCategories, categoriesFor, client, setSettings]);
+
   const isExporting =
     exportState.phase === 'clipping' ||
     exportState.phase === 'saving' ||
@@ -365,18 +425,49 @@ export const TabsPage = () => {
       <div className='mx-auto max-w-2xl space-y-6'>
         <div>
           <div className='flex items-center gap-3'>
-            <h1 className='text-2xl font-semibold'>Save Multiple Clips</h1>
+            <h1 className='text-2xl font-semibold'>Save Multiple Tabs</h1>
             <DaemonStatus status={daemon} />
           </div>
           <p className='text-sm text-muted-foreground mt-1'>
-            {activeDestination === 'repo'
-              ? 'Select tabs to clip. They are saved to your repository in a single commit.'
-              : 'Select tabs to clip as markdown. They will be exported as a ZIP file.'}
+            {mode === 'bookmark'
+              ? activeDestination === 'repo'
+                ? 'Select tabs to bookmark. Only the links are saved, in a single commit.'
+                : 'Select tabs to bookmark. Their links are exported as one markdown file.'
+              : activeDestination === 'repo'
+                ? 'Select tabs to clip. They are saved to your repository in a single commit.'
+                : 'Select tabs to clip as markdown. They will be exported as a ZIP file.'}
           </p>
         </div>
 
         <Card>
           <CardContent className='space-y-4'>
+            <div>
+              <span className='block text-xs text-muted-foreground mb-2'>Save as</span>
+              <div className='flex flex-wrap gap-1.5'>
+                {(['clip', 'bookmark'] as const).map((value) => (
+                  <Badge
+                    className={cn(
+                      'cursor-pointer font-normal',
+                      isExporting && 'pointer-events-none opacity-50',
+                    )}
+                    title={
+                      value === 'clip'
+                        ? 'Extract the full page of every selected tab'
+                        : 'Save only the title and link of every selected tab, all at once'
+                    }
+                    aria-pressed={mode === value}
+                    key={value}
+                    variant={mode === value ? 'default' : 'outline'}
+                    onClick={() => setMode(value)}
+                  >
+                    {value === 'clip' ? 'Full clips' : 'Bookmarks only'}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            <Separator />
+
             <div>
               <span className='block text-xs text-muted-foreground mb-2'>Destination</span>
               <div className='flex flex-wrap gap-1.5'>
@@ -390,20 +481,28 @@ export const TabsPage = () => {
                     title={
                       value === 'repo'
                         ? 'Write to the git-backed repository, one commit for the batch'
-                        : 'Download every clip as a single ZIP file'
+                        : mode === 'bookmark'
+                          ? 'Download every link in a single markdown file'
+                          : 'Download every clip as a single ZIP file'
                     }
                     aria-pressed={activeDestination === value}
                     key={value}
                     variant={activeDestination === value ? 'default' : 'outline'}
                     onClick={() => setDestination(value)}
                   >
-                    {value === 'repo' ? 'Save to repository' : 'Export ZIP'}
+                    {value === 'repo'
+                      ? 'Save to repository'
+                      : mode === 'bookmark'
+                        ? 'Export Markdown'
+                        : 'Export ZIP'}
                   </Badge>
                 ))}
               </div>
               {!canSaveToRepo && (
                 <p className='text-xs text-muted-foreground mt-2'>
-                  The repository is unavailable, so clips will be exported as a ZIP.
+                  {mode === 'bookmark'
+                    ? 'The repository is unavailable, so bookmarks will be exported as one markdown file.'
+                    : 'The repository is unavailable, so clips will be exported as a ZIP.'}
                 </p>
               )}
             </div>
@@ -476,7 +575,7 @@ export const TabsPage = () => {
                 return (
                   <li className='flex items-center gap-3 py-2.5 px-1' key={tab.id}>
                     <Checkbox
-                      aria-label={`Clip ${tab.title}`}
+                      aria-label={`${mode === 'bookmark' ? 'Bookmark' : 'Clip'} ${tab.title}`}
                       checked={tab.selected}
                       className='shrink-0'
                       disabled={!tab.clippable || isExporting}
@@ -577,7 +676,7 @@ export const TabsPage = () => {
                   isExporting ||
                   (activeDestination === 'repo' && activeCategories.length === 0)
                 }
-                onClick={asHandler(handleExport)}
+                onClick={asHandler(mode === 'bookmark' ? handleBookmarkAll : handleExport)}
               >
                 {exportState.phase === 'clipping'
                   ? `Clipping ${exportState.current}/${exportState.total}...`
@@ -585,9 +684,13 @@ export const TabsPage = () => {
                     ? 'Compressing…'
                     : exportState.phase === 'saving'
                       ? `Saving ${exportState.total}...`
-                      : activeDestination === 'repo'
-                        ? 'Save to repository'
-                        : 'Export ZIP'}
+                      : mode === 'bookmark'
+                        ? activeDestination === 'repo'
+                          ? `Bookmark ${selectedCount} tab${selectedCount === 1 ? '' : 's'}`
+                          : 'Export Markdown'
+                        : activeDestination === 'repo'
+                          ? 'Save to repository'
+                          : 'Export ZIP'}
               </Button>
             </div>
           </CardFooter>
@@ -597,8 +700,9 @@ export const TabsPage = () => {
           <Card>
             <CardHeader>
               <CardTitle className='text-destructive text-sm'>
-                {exportState.errors.length} tab{exportState.errors.length > 1 ? 's' : ''} failed to
-                clip
+                {mode === 'bookmark'
+                  ? 'Bookmarks could not be saved'
+                  : `${exportState.errors.length} tab${exportState.errors.length > 1 ? 's' : ''} failed to clip`}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -624,9 +728,8 @@ export const TabsPage = () => {
             </CardHeader>
             <CardContent>
               <ul className='space-y-1'>
-                {exportState.saved.results
-                  .filter((result) => result.status !== 'failed')
-                  .map((result) => (
+                {exportState.saved.results.map((result) =>
+                  result.status === 'failed' ? null : (
                     <li className='text-xs text-muted-foreground' key={result.url}>
                       <span
                         className={cn(
@@ -646,17 +749,39 @@ export const TabsPage = () => {
                       </span>
                       {result.path}
                     </li>
-                  ))}
+                  ),
+                )}
               </ul>
             </CardContent>
           </Card>
         )}
 
-        {exportState.phase === 'done' && exportState.errors.length === 0 && !exportState.saved && (
-          <p className='text-sm text-muted-foreground text-center'>
-            Export complete. You can close this tab.
-          </p>
+        {exportState.phase === 'done' && exportState.bookmarked && (
+          <Card>
+            <CardHeader>
+              <CardTitle className='text-sm'>
+                {exportState.bookmarked.commit
+                  ? `Committed: ${exportState.bookmarked.commit.message}`
+                  : 'Nothing changed'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className='text-xs text-muted-foreground'>
+                {exportState.bookmarked.added} added, {exportState.bookmarked.updated} already saved
+                and updated in place.
+              </p>
+            </CardContent>
+          </Card>
         )}
+
+        {exportState.phase === 'done' &&
+          exportState.errors.length === 0 &&
+          !exportState.saved &&
+          !exportState.bookmarked && (
+            <p className='text-sm text-muted-foreground text-center'>
+              Export complete. You can close this tab.
+            </p>
+          )}
       </div>
     </div>
   );
