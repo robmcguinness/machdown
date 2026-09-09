@@ -130,31 +130,49 @@ export const copyMarkdown = async (clip: ClipResult): Promise<boolean> => {
 
 export type TabLink = { title: string; url: string };
 
-export const downloadTabLinks = (tabs: TabLink[], callbacks: DownloadMarkdownCallbacks = {}) => {
-  const date = new Date().toISOString().slice(0, 10);
+/**
+ * Renders a set of links as one markdown document.
+ *
+ * This is the offline shape of a bookmark batch: the daemon stores each link
+ * as its own stub file, but without the daemon one list is what the user can
+ * actually keep and open. Frontmatter carries the count so the file explains
+ * itself, and the links are the same `- [title](url)` lines the README uses.
+ */
+export const buildTabLinksMarkdown = (
+  tabs: readonly TabLink[],
+  exportedAt = new Date(),
+): string => {
+  const date = exportedAt.toISOString().slice(0, 10);
   const lines = [
     '---',
     `exported: ${date}`,
     `tabs: ${tabs.length}`,
     '---',
     '',
-    ...tabs.map((t) => `- [${t.title}](${t.url})`),
+    ...tabs.map((t) => `- [${t.title.replaceAll(/[\r\n]+/g, ' ').trim() || t.url}](${t.url})`),
     '',
   ];
+  return lines.join('\n');
+};
 
-  const md = lines.join('\n');
-  const filename = `tabs-${date}.md`;
+/** Downloads every link as a single `bookmarks-<date>.md` file. */
+export const downloadTabLinks = (tabs: readonly TabLink[]): Promise<void> => {
+  const now = new Date();
+  const md = buildTabLinksMarkdown(tabs, now);
+  const filename = `bookmarks-${now.toISOString().slice(0, 10)}.md`;
   const url = `data:text/markdown;charset=utf-8,${encodeURIComponent(md)}`;
 
-  chrome.downloads.download({ filename, saveAs: true, url }, (downloadId) => {
-    if (chrome.runtime.lastError) {
-      callbacks.onError?.(new Error(chrome.runtime.lastError.message));
-      return;
-    }
-    if (!isDownloadId(downloadId)) {
-      callbacks.onError?.(new Error('Download could not be started'));
-      return;
-    }
-    callbacks.onSuccess?.();
+  return new Promise((resolve, reject) => {
+    chrome.downloads.download({ filename, saveAs: true, url }, (downloadId) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+      if (!isDownloadId(downloadId)) {
+        reject(new Error('Download could not be started'));
+        return;
+      }
+      resolve();
+    });
   });
 };
