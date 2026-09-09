@@ -3,6 +3,13 @@
 Run `pnpm --filter @machdown/extension test` for regression tests and
 `pnpm --filter @machdown/extension build` to type-check and bundle the extension.
 
+## First init
+
+Initializing a fresh folder seeds its repository config with the extension's
+categories, default category, and category suggestions setting. An existing
+`.machdown/config.json` wins: its settings are kept and synchronized back to the
+extension. The initialization toast confirms when local categories were saved.
+
 ## Page extraction
 
 The popup tracks only the seven Markdown extraction settings when deciding to

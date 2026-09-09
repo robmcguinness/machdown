@@ -18,6 +18,7 @@ import {
 } from '#components/ui/select.tsx';
 import { describeFailure, toDaemonFailure } from '#common/daemonClient.ts';
 import { validateCategory } from '#common/categories.ts';
+import { configSeedFromSettings } from '#common/configSeed.ts';
 import { clearPairing, getExtensionId, savePairing } from '#common/daemonStorage.ts';
 import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '#components/ui/badge.tsx';
@@ -114,9 +115,24 @@ export const RepositorySection = ({ daemon, settings, updateSettings }: Reposito
 
   const handleInit = () =>
     run('init', async () => {
-      const result = await client.repo.init({ adoptFlatClips: adopt, path: repoPath.trim() });
+      // Always send the seed: the daemon ignores it when a config file exists,
+      // keeping the repository authoritative (D4).
+      const result = await client.repo.init({
+        adoptFlatClips: adopt,
+        config: configSeedFromSettings(settings),
+        path: repoPath.trim(),
+      });
 
       const parts: string[] = ['Repository ready.'];
+      // Informational only (Q3): the seed is saved in the init commit, so no
+      // follow-up config update is needed or can race the status poll.
+      if (result.configCreated) {
+        parts.push(
+          `Saved your ${settings.categories.length} ${
+            settings.categories.length === 1 ? 'category' : 'categories'
+          } into the new repository.`,
+        );
+      }
       if (result.migrated > 0) {
         parts.push(`Adopted ${result.migrated} existing clip${result.migrated === 1 ? '' : 's'}.`);
       }
