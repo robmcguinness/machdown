@@ -369,7 +369,6 @@ export const RepositorySection = ({ daemon, settings, updateSettings }: Reposito
                   <div className='flex gap-2'>
                     <Input
                       id='repo-path'
-                      placeholder={repo?.path ?? '~/Workspaces/kb'}
                       value={repoPath}
                       onChange={(event) => setRepoPath(event.target.value)}
                     />
