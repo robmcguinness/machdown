@@ -45,6 +45,12 @@ export const PairedExtensionSchema = z.object({
  */
 export const DaemonConfigSchema = z.object({
   $schema: z.string().optional(),
+  /**
+   * The folder holding `bookmarks.md`. Separate from `repoPath` on purpose:
+   * bookmarks are a plain file the user owns, not repository content, so one
+   * can be configured without the other.
+   */
+  bookmarksPath: z.string().min(1).nullable().default(null),
   extensions: z.array(PairedExtensionSchema).default([]),
   port: PortSchema.default(DEFAULT_DAEMON_PORT),
   repoPath: z.string().min(1).nullable().default(null),

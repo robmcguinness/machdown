@@ -87,7 +87,10 @@ const gate = () => {
 
 /** A fresh daemon state, so each test gets its own uncontended mutex. */
 const state = () =>
-  createDaemonState({ extensions: [], port: 0, repoPath: null, version: 1 }, '0.0.0-test');
+  createDaemonState(
+    { bookmarksPath: null, extensions: [], port: 0, repoPath: null, version: 1 },
+    '0.0.0-test',
+  );
 
 describe('the qmd accumulator', () => {
   test('adds each call to the running totals', async () => {

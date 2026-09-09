@@ -10,6 +10,16 @@ export type DaemonStatus =
   | { health: Health; state: 'unpaired' }
   | { config: MachdownConfig | null; health: Health; state: 'ready' };
 
+/**
+ * A daemon built before the bookmarks folder existed omits `bookmarks` from
+ * its health response. Read that as "no folder yet" so an extension that is
+ * newer than its daemon degrades to the download fallback instead of crashing
+ * every page on `undefined.path`.
+ */
+const withBookmarks = (
+  health: Omit<Health, 'bookmarks'> & { bookmarks?: Health['bookmarks'] },
+): Health => ({ ...health, bookmarks: health.bookmarks ?? { path: null } });
+
 /** Re-poll while the page is visible; a background tab does not need to know. */
 const POLL_INTERVAL_MS = 30_000;
 
@@ -19,6 +29,8 @@ export type UseDaemonStatus = {
   status: DaemonStatus;
   /** True when a repo-backed save is expected to succeed right now. */
   canSaveToRepo: boolean;
+  /** True when the daemon has a bookmarks folder, so `bookmarks.md` can be appended to. */
+  canSaveBookmarks: boolean;
 };
 
 /**
@@ -49,7 +61,7 @@ export const useDaemonStatus = (): UseDaemonStatus => {
 
     const check = async () => {
       try {
-        const health = await client.health();
+        const health = withBookmarks(await client.health());
         if (cancelled) {
           return;
         }
@@ -129,5 +141,9 @@ export const useDaemonStatus = (): UseDaemonStatus => {
 
   const canSaveToRepo = status.state === 'ready' && status.health.repo !== null;
 
-  return { canSaveToRepo, client, refresh, status };
+  // Deliberately independent of the repository: a bookmarks folder is a plain
+  // directory, so bookmarking works with no repository at all.
+  const canSaveBookmarks = status.state === 'ready' && status.health.bookmarks.path !== null;
+
+  return { canSaveBookmarks, canSaveToRepo, client, refresh, status };
 };

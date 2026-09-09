@@ -1,5 +1,4 @@
-import { Badge, badgeVariants } from '#components/ui/badge.tsx';
-import type { VariantProps } from 'class-variance-authority';
+import { StatusBadge, type StatusTone } from '#components/StatusBadge.tsx';
 import type { DaemonStatus as Status } from '#common/useDaemonStatus.ts';
 import { cn } from '#lib/utils.ts';
 
@@ -11,21 +10,14 @@ type DaemonStatusProps = {
   status: Status;
 };
 
-type Variant = NonNullable<VariantProps<typeof badgeVariants>['variant']>;
-
 /** `describe`'s result, checked with `satisfies` on each return so the
- * `variant` literals below stay `Variant` instead of widening to `string`
+ * `tone` literals below stay `StatusTone` instead of widening to `string`
  * the way a function return-type annotation would. */
-type DescribeResult = { label: string; title: string; variant: Variant };
+type DescribeResult = { label: string; title: string; tone: StatusTone };
 
-/** Tailwind classes for the state dot, kept next to the variant they follow. */
-const DOT_COLOR: Record<Variant, string> = {
-  default: 'bg-primary',
-  destructive: 'bg-destructive',
-  ghost: 'bg-muted-foreground',
-  link: 'bg-primary',
-  outline: 'bg-muted-foreground',
-  secondary: 'bg-muted-foreground',
+/** Tailwind classes for the state dot, kept next to the tone they follow. */
+const DOT_COLOR: Record<StatusTone, string> = {
+  neutral: 'bg-muted-foreground',
   success: 'bg-success',
   warning: 'bg-warning',
 };
@@ -36,31 +28,31 @@ const describe = (status: Status) => {
       return {
         label: 'Checking…',
         title: 'Contacting the Machdown daemon',
-        variant: 'secondary',
+        tone: 'neutral',
       } satisfies DescribeResult;
     case 'offline':
       return {
         label: 'Daemon offline',
         title: 'Clips will be saved with the browser download dialog',
-        variant: 'secondary',
+        tone: 'neutral',
       } satisfies DescribeResult;
     case 'unpaired':
       return {
         label: 'Not paired',
         title: 'Open settings to pair this extension with the daemon',
-        variant: 'warning',
+        tone: 'warning',
       } satisfies DescribeResult;
     default:
       return status.health.repo
         ? ({
             label: status.health.repo.branch,
             title: `Saving to ${status.health.repo.path}`,
-            variant: 'success',
+            tone: 'success',
           } satisfies DescribeResult)
         : ({
             label: 'No repository',
             title: 'Paired, but no clip repository has been set up yet',
-            variant: 'warning',
+            tone: 'warning',
           } satisfies DescribeResult);
   }
 };
@@ -77,7 +69,7 @@ export const DaemonStatus = ({
   onClick,
   status,
 }: DaemonStatusProps) => {
-  const { label, title, variant } = describe(status);
+  const { label, title, tone } = describe(status);
 
   if (appearance === 'line') {
     const connected = status.state === 'ready' && status.health.repo;
@@ -93,7 +85,7 @@ export const DaemonStatus = ({
         type='button'
         onClick={onClick}
       >
-        <span className={cn('size-1.5 shrink-0 rounded-full', DOT_COLOR[variant])} />
+        <span className={cn('size-1.5 shrink-0 rounded-full', DOT_COLOR[tone])} />
         <span className='truncate'>
           {connected && 'Connected · '}
           <span className='font-medium text-foreground'>{label}</span>
@@ -103,10 +95,10 @@ export const DaemonStatus = ({
   }
 
   return (
-    <Badge
+    <StatusBadge
       className={cn('gap-1.5 font-normal', onClick && 'cursor-pointer', className)}
       title={title}
-      variant={variant}
+      tone={tone}
       onClick={onClick}
     >
       <span
@@ -116,6 +108,6 @@ export const DaemonStatus = ({
         )}
       />
       {label}
-    </Badge>
+    </StatusBadge>
   );
 };

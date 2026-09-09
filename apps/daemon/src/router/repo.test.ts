@@ -22,7 +22,7 @@ describe('POST /v1/repo/init', () => {
   beforeEach(async () => {
     repo = await mkdtemp(path.join(os.tmpdir(), 'machdown-repo-init-'));
     const state = createDaemonState(
-      { extensions: [], port: 0, repoPath: null, version: 1 },
+      { bookmarksPath: null, extensions: [], port: 0, repoPath: null, version: 1 },
       '0.0.0-test',
     );
     // Never write the operator's daemon.json from an integration test.

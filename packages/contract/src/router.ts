@@ -1,4 +1,7 @@
 import {
+  AppendBookmarksRequestSchema,
+  AppendBookmarksResultSchema,
+  BookmarksLocationSchema,
   CategorySuggestRequestSchema,
   CategorySuggestResultSchema,
   ClipDocumentSchema,
@@ -21,6 +24,7 @@ import {
   SaveClipsResultSchema,
   SearchRequestSchema,
   SearchResultSchema,
+  SetBookmarksLocationRequestSchema,
 } from './schemas.ts';
 import { oc } from '@orpc/contract';
 import { openapi } from '@orpc/openapi';
@@ -40,6 +44,9 @@ const base = oc.errors({
   GIT_FAILED: {
     data: z.object({ command: z.string(), stderr: z.string() }).partial(),
     message: 'A git command failed.',
+  },
+  NO_BOOKMARKS_DIR: {
+    message: 'No bookmarks folder is configured. Choose one in the extension settings.',
   },
   NO_REPO: {
     message: 'No clip repository is configured. Initialize one first.',
@@ -64,12 +71,44 @@ export const contract = base.router({
     .meta(openapi({ method: 'GET', path: '/v1/health', summary: 'Daemon and repository status' }))
     .output(HealthSchema),
 
-  /** Exchanges a short-lived pairing code printed by the daemon for a token. */
+  /** Link-only saves: the appended `bookmarks.md`, plus the older repo stubs. */
   bookmarks: {
+    /**
+     * Appends links to one `bookmarks.md` in the chosen folder.
+     *
+     * The current shape of a bookmark: a line in a file the user owns, outside
+     * any clip repository, so bookmarking needs no git and no repo at all.
+     */
+    append: base
+      .meta(
+        openapi({
+          method: 'POST',
+          path: '/v1/bookmarks/append',
+          summary: 'Append links to bookmarks.md',
+        }),
+      )
+      .input(AppendBookmarksRequestSchema)
+      .output(AppendBookmarksResultSchema),
+
+    /**
+     * Kept for repositories written by an older extension: it still writes one
+     * stub document per link and commits, so an existing repo keeps working.
+     */
     save: base
       .meta(openapi({ method: 'POST', path: '/v1/bookmarks', summary: 'Save link-only bookmarks' }))
       .input(SaveBookmarksRequestSchema)
       .output(SaveBookmarksResultSchema),
+
+    setLocation: base
+      .meta(
+        openapi({
+          method: 'PUT',
+          path: '/v1/bookmarks/location',
+          summary: 'Choose the bookmarks folder',
+        }),
+      )
+      .input(SetBookmarksLocationRequestSchema)
+      .output(BookmarksLocationSchema),
   },
 
   categories: {

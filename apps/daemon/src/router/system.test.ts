@@ -9,6 +9,7 @@ import { hashToken } from '#server/auth.ts';
 const TOKEN = 'test-token';
 
 const config: DaemonConfig = {
+  bookmarksPath: null,
   extensions: [
     {
       extensionId: 'test-extension',

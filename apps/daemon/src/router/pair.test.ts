@@ -15,7 +15,13 @@ import { createDaemonState } from '#server/context.ts';
  * own `~/.machdown/daemon.json`, and a test has no business touching it.
  */
 
-const config = (): DaemonConfig => ({ extensions: [], port: 0, repoPath: null, version: 1 });
+const config = (): DaemonConfig => ({
+  bookmarksPath: null,
+  extensions: [],
+  port: 0,
+  repoPath: null,
+  version: 1,
+});
 
 const pair = (app: FastifyInstance, code: string, extensionId = 'test-extension') =>
   app.inject({

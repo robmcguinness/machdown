@@ -17,6 +17,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#components/ui/tabs.tsx';
 import { Button } from '#components/ui/button.tsx';
 import { DaemonStatus } from '#components/DaemonStatus.tsx';
+import { BookmarksSection } from '#components/BookmarksSection.tsx';
 import { RepositorySection } from './RepositorySection';
 import { Separator } from '#components/ui/separator.tsx';
 import { Slider } from '#components/ui/slider.tsx';
@@ -82,8 +83,8 @@ export const Options = () => {
     <section className='min-h-screen p-6 font-sans bg-background text-foreground'>
       <div className='max-w-3xl mx-auto py-10'>
         <header className='mb-8'>
-          <h1 className='text-3xl md:text-5xl font-bold mt-4'>Options</h1>
-          <p className='text-muted-foreground mt-2'>
+          <h1 className='font-heading text-lg font-medium'>Options</h1>
+          <p className='text-muted-foreground mt-2 text-xs'>
             Configure how Machdown clips and formats your content.
           </p>
         </header>
@@ -110,6 +111,9 @@ export const Options = () => {
               settings={settings}
               updateSettings={updateSettings}
             />
+            {/* Below the repository card, but not part of it: a bookmarks
+                folder is set independently and needs no repository. */}
+            {daemon.status.state === 'ready' && <BookmarksSection daemon={daemon} />}
           </TabsContent>
 
           <TabsContent className='space-y-6' value='appearance'>

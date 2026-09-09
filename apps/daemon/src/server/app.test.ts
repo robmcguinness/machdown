@@ -19,6 +19,7 @@ const TOKEN = 'test-token';
 const EXTENSION_ORIGIN = 'chrome-extension://abcdefghijklmnopqrstuvwxyzabcdef';
 
 const config = (): DaemonConfig => ({
+  bookmarksPath: null,
   extensions: [
     {
       extensionId: 'test-extension',

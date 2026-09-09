@@ -19,6 +19,7 @@ import { z } from 'zod';
 const TOKEN = 'test-token';
 
 const config = (): DaemonConfig => ({
+  bookmarksPath: null,
   extensions: [
     {
       extensionId: 'test-extension',

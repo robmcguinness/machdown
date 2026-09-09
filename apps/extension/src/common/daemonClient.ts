@@ -44,6 +44,7 @@ export type DaemonFailure =
   | { kind: 'offline' }
   | { kind: 'unauthorized' }
   | { kind: 'no-repo' }
+  | { kind: 'no-bookmarks-dir' }
   | { kind: 'qmd-unavailable' }
   | { code: string; kind: 'error'; message: string };
 
@@ -107,6 +108,8 @@ export const toDaemonFailure = (cause: unknown): DaemonFailure => {
         return { kind: 'unauthorized' };
       case 'NO_REPO':
         return { kind: 'no-repo' };
+      case 'NO_BOOKMARKS_DIR':
+        return { kind: 'no-bookmarks-dir' };
       case 'QMD_UNAVAILABLE':
         return { kind: 'qmd-unavailable' };
       default:
@@ -132,6 +135,8 @@ export const describeFailure = (failure: DaemonFailure): string => {
       return 'This extension is not paired with the daemon.';
     case 'no-repo':
       return 'No clip repository is configured yet.';
+    case 'no-bookmarks-dir':
+      return 'No bookmarks folder is set. Choose one in the settings.';
     case 'qmd-unavailable':
       return 'The search index is unavailable, so search is disabled.';
     default:

@@ -33,6 +33,7 @@ const {
 } = await import('./config.ts');
 
 const config: DaemonConfig = {
+  bookmarksPath: null,
   extensions: [],
   port: 4123,
   repoPath: null,

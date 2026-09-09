@@ -4,6 +4,7 @@ import { ErrorScreen } from '#common/errorScreen.tsx';
 import { Popup } from './Popup';
 import ReactDOM from 'react-dom/client';
 import { StrictMode } from 'react';
+import { Toaster } from '#components/Toaster.tsx';
 
 const root = ReactDOM.createRoot(document.querySelector('#popupRoot')!);
 
@@ -15,6 +16,8 @@ root.render(
   >
     <StrictMode>
       <Popup />
+      {/* The popup is 400px wide, so the toast has to sit inside it. */}
+      <Toaster position='bottom-center' />
     </StrictMode>
   </ErrorBoundary>,
 );

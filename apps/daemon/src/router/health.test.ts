@@ -42,7 +42,13 @@ describe('health probe caching', () => {
     await commitAll(repoPath, 'initial');
     scratch = path.join(repoPath, 'clips', 'scratch.md');
 
-    const config: DaemonConfig = { extensions: [], port: 0, repoPath, version: 1 };
+    const config: DaemonConfig = {
+      bookmarksPath: null,
+      extensions: [],
+      port: 0,
+      repoPath,
+      version: 1,
+    };
     app = await buildApp(createDaemonState(config, '0.0.0-test'));
   });
 

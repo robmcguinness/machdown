@@ -1,9 +1,10 @@
 import { extractBatch } from '#lib/batch.ts';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '#components/ui/card.tsx';
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '#components/ui/field.tsx';
+import { ToggleGroup, ToggleGroupItem } from '#components/ui/toggle-group.tsx';
 import type {
-  BookmarkPayload,
+  AppendBookmarksResult,
+  BookmarkLink,
   ClipPayload,
-  SaveBookmarksResult,
   SaveClipsResult,
   SuggestItem,
 } from '@machdown/contract';
@@ -21,7 +22,6 @@ import { Button } from '#components/ui/button.tsx';
 import { CategoryPicker } from '#components/CategoryPicker.tsx';
 import { Checkbox } from '#components/ui/checkbox.tsx';
 import { DaemonStatus } from '#components/DaemonStatus.tsx';
-import { Separator } from '#components/ui/separator.tsx';
 import { Sparkles } from 'lucide-react';
 import { cn } from '#lib/utils.ts';
 import { useCategorySuggestions } from '#common/useCategorySuggestions.ts';
@@ -44,18 +44,30 @@ type ExportState =
   | { phase: 'idle' }
   | { current: number; errors: string[]; phase: 'clipping'; total: number }
   | { errors: string[]; phase: 'saving' | 'compressing'; total: number }
-  | { bookmarked?: SaveBookmarksResult; errors: string[]; phase: 'done'; saved?: SaveClipsResult };
+  | {
+      bookmarked?: AppendBookmarksResult;
+      errors: string[];
+      phase: 'done';
+      saved?: SaveClipsResult;
+    };
 
-/** Where a batch goes. The ZIP path is unchanged and stays the fallback. */
+/**
+ * Where a batch goes. `repo` means the clip repository for clips and the
+ * bookmarks folder for bookmarks; `zip` is the download in both modes, a ZIP
+ * of clips or one markdown list of links.
+ */
 type Destination = 'repo' | 'zip';
 
 /**
- * What a batch produces. `clip` extracts every page; `bookmark` saves only the
+ * What a batch produces. `clip` extracts every page; `bookmark` keeps only the
  * link, so it needs no host permission and no extraction — forty tabs become
- * forty stub files and one commit, or one markdown list when the daemon is
- * away.
+ * forty lines appended to one `bookmarks.md`, or one markdown download when no
+ * folder is set.
  */
 type Mode = 'clip' | 'bookmark';
+
+/** The option-group heading, shared with the search page's filter panel. */
+const GROUP_LABEL = 'font-heading text-[10.5px] tracking-wider text-muted-foreground uppercase';
 
 /** Display-only site name for the suggestion request. */
 const hostOf = (url: string): string => {
@@ -119,7 +131,7 @@ export const TabsPage = () => {
   const [destination, setDestination] = useState<Destination | null>(null);
   const [mode, setMode] = useState<Mode>('clip');
   const { setSettings, settings } = useSharedSettings();
-  const { canSaveToRepo, client, status: daemon } = useDaemonStatus();
+  const { canSaveBookmarks, canSaveToRepo, client, status: daemon } = useDaemonStatus();
 
   // The fallback for tabs with neither an override nor a suggestion.
   // Memoized because the export callback depends on it.
@@ -132,8 +144,16 @@ export const TabsPage = () => {
     [categories, settings.lastUsedCategories, settings.defaultCategory],
   );
 
-  // Default to the repository when it is reachable, otherwise the ZIP.
-  const activeDestination: Destination = destination ?? (canSaveToRepo ? 'repo' : 'zip');
+  /**
+   * Each mode has its own daemon-backed destination: a clip needs the
+   * repository, a bookmark needs the bookmarks folder. One can be configured
+   * without the other, so the availability check follows the mode.
+   */
+  const canUseDaemon = mode === 'bookmark' ? canSaveBookmarks : canSaveToRepo;
+
+  // Falls back rather than staying on an unavailable choice: switching modes
+  // must not leave the batch pointed at a destination it cannot write to.
+  const activeDestination: Destination = canUseDaemon ? (destination ?? 'repo') : 'zip';
 
   /**
    * One batched request covering every clippable tab.
@@ -144,7 +164,8 @@ export const TabsPage = () => {
    * same-site signal, which needs no page contents at all.
    */
   const suggestItems = useMemo<SuggestItem[] | null>(() => {
-    if (activeDestination !== 'repo') {
+    // Bookmark lines carry no categories, so there is nothing to suggest.
+    if (mode !== 'clip' || activeDestination !== 'repo') {
       return null;
     }
     const clippable = tabs.filter((tab) => tab.clippable);
@@ -158,10 +179,10 @@ export const TabsPage = () => {
       title: tab.title,
       url: tab.url,
     }));
-  }, [tabs, activeDestination]);
+  }, [tabs, mode, activeDestination]);
 
   const suggestions = useCategorySuggestions(client, suggestItems, {
-    enabled: activeDestination === 'repo' && settings.suggestCategories,
+    enabled: mode === 'clip' && activeDestination === 'repo' && settings.suggestCategories,
     timeoutMs: 6_000,
   });
 
@@ -371,12 +392,12 @@ export const TabsPage = () => {
   }, [tabs, settings, activeDestination, activeCategories, categoriesFor, client, setSettings]);
 
   /**
-   * Saves every selected tab as a link-only bookmark in one go.
+   * Appends every selected tab to `bookmarks.md` in one go.
    *
    * Nothing is extracted, so this needs no host permission and finishes in one
-   * request. The repository path is one `bookmarks.save` call — and therefore
-   * one commit — mirroring the clip batch. Without the daemon the links go into
-   * a single markdown file instead, since there is no stub file to write.
+   * request, whatever the tab count. Links already in the file come back as
+   * `skipped` rather than as errors, so re-running over the same window is
+   * safe. Without a bookmarks folder the links download as one markdown file.
    */
   const handleBookmarkAll = useCallback(async () => {
     const selected = tabs.filter((t) => t.selected);
@@ -399,21 +420,19 @@ export const TabsPage = () => {
       return;
     }
 
-    const bookmarks: BookmarkPayload[] = selected.map((tab) => ({
-      categories: [...categoriesFor(tab)],
+    const links: BookmarkLink[] = selected.map((tab) => ({
       siteName: hostOf(tab.url),
       title: tab.title,
       url: tab.url,
     }));
 
     try {
-      const bookmarked = await client.bookmarks.save({ bookmarks });
-      setSettings({ lastUsedCategories: activeCategories });
+      const bookmarked = await client.bookmarks.append({ links });
       setExportState({ bookmarked, errors: [], phase: 'done' });
     } catch (error) {
       setExportState({ errors: [describeFailure(toDaemonFailure(error))], phase: 'done' });
     }
-  }, [tabs, activeDestination, activeCategories, categoriesFor, client, setSettings]);
+  }, [tabs, activeDestination, client]);
 
   const isExporting =
     exportState.phase === 'clipping' ||
@@ -421,102 +440,113 @@ export const TabsPage = () => {
     exportState.phase === 'compressing';
 
   return (
-    <div className='min-h-screen bg-background p-8'>
-      <div className='mx-auto max-w-2xl space-y-6'>
-        <div>
-          <div className='flex items-center gap-3'>
-            <h1 className='text-2xl font-semibold'>Save Multiple Tabs</h1>
-            <DaemonStatus status={daemon} />
-          </div>
-          <p className='text-sm text-muted-foreground mt-1'>
-            {mode === 'bookmark'
-              ? activeDestination === 'repo'
-                ? 'Select tabs to bookmark. Only the links are saved, in a single commit.'
-                : 'Select tabs to bookmark. Their links are exported as one markdown file.'
-              : activeDestination === 'repo'
-                ? 'Select tabs to clip. They are saved to your repository in a single commit.'
-                : 'Select tabs to clip as markdown. They will be exported as a ZIP file.'}
-          </p>
-        </div>
+    <div className='flex h-full flex-col bg-background font-sans text-foreground'>
+      <header className='flex h-11 shrink-0 items-center gap-3 border-b px-5'>
+        <span className='font-heading text-xs'>
+          machdown <span className='text-muted-foreground'>/ save tabs</span>
+        </span>
+        <DaemonStatus className='ml-auto' status={daemon} />
+      </header>
 
-        <Card>
-          <CardContent className='space-y-4'>
-            <div>
-              <span className='block text-xs text-muted-foreground mb-2'>Save as</span>
-              <div className='flex flex-wrap gap-1.5'>
-                {(['clip', 'bookmark'] as const).map((value) => (
-                  <Badge
-                    className={cn(
-                      'cursor-pointer font-normal',
-                      isExporting && 'pointer-events-none opacity-50',
-                    )}
-                    title={
-                      value === 'clip'
-                        ? 'Extract the full page of every selected tab'
-                        : 'Save only the title and link of every selected tab, all at once'
+      <div className='grid h-[calc(100vh-44px)] grid-cols-[280px_1fr]'>
+        <div className='flex min-h-0 flex-col border-r'>
+          <div className='min-h-0 flex-1 overflow-y-auto p-4'>
+            <FieldGroup>
+              <Field>
+                <FieldLabel className={GROUP_LABEL}>Save as</FieldLabel>
+                <ToggleGroup
+                  className='w-full'
+                  disabled={isExporting}
+                  size='sm'
+                  spacing={0}
+                  value={[mode]}
+                  variant='outline'
+                  // The group is exclusive, so `next` holds one value at most.
+                  // An empty array means the pressed item was pressed again;
+                  // a batch always has a mode, so that click changes nothing.
+                  onValueChange={(next) => {
+                    if (next.length > 0) {
+                      setMode(next[0] === 'bookmark' ? 'bookmark' : 'clip');
                     }
-                    aria-pressed={mode === value}
-                    key={value}
-                    variant={mode === value ? 'default' : 'outline'}
-                    onClick={() => setMode(value)}
+                  }}
+                >
+                  <ToggleGroupItem
+                    className='flex-1'
+                    title='Extract the full page of every selected tab'
+                    value='clip'
                   >
-                    {value === 'clip' ? 'Full clips' : 'Bookmarks only'}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-
-            <Separator />
-
-            <div>
-              <span className='block text-xs text-muted-foreground mb-2'>Destination</span>
-              <div className='flex flex-wrap gap-1.5'>
-                {(['repo', 'zip'] as const).map((value) => (
-                  <Badge
-                    className={cn(
-                      'cursor-pointer font-normal',
-                      (isExporting || (value === 'repo' && !canSaveToRepo)) &&
-                        'pointer-events-none opacity-50',
-                    )}
-                    title={
-                      value === 'repo'
-                        ? 'Write to the git-backed repository, one commit for the batch'
-                        : mode === 'bookmark'
-                          ? 'Download every link in a single markdown file'
-                          : 'Download every clip as a single ZIP file'
-                    }
-                    aria-pressed={activeDestination === value}
-                    key={value}
-                    variant={activeDestination === value ? 'default' : 'outline'}
-                    onClick={() => setDestination(value)}
+                    Full clips
+                  </ToggleGroupItem>
+                  <ToggleGroupItem
+                    className='flex-1'
+                    title='Keep only the title and link of every selected tab, all at once'
+                    value='bookmark'
                   >
-                    {value === 'repo'
-                      ? 'Save to repository'
-                      : mode === 'bookmark'
-                        ? 'Export Markdown'
-                        : 'Export ZIP'}
-                  </Badge>
-                ))}
-              </div>
-              {!canSaveToRepo && (
-                <p className='text-xs text-muted-foreground mt-2'>
+                    Bookmarks only
+                  </ToggleGroupItem>
+                </ToggleGroup>
+                <FieldDescription>
                   {mode === 'bookmark'
-                    ? 'The repository is unavailable, so bookmarks will be exported as one markdown file.'
-                    : 'The repository is unavailable, so clips will be exported as a ZIP.'}
-                </p>
-              )}
-            </div>
+                    ? activeDestination === 'repo'
+                      ? 'Only the links are kept, appended to bookmarks.md.'
+                      : 'The links are exported as one markdown file.'
+                    : activeDestination === 'repo'
+                      ? 'Every page is extracted and saved in a single commit.'
+                      : 'Every page is extracted and exported as a ZIP file.'}
+                </FieldDescription>
+              </Field>
 
-            {activeDestination === 'repo' && (
-              <>
-                <Separator />
-                <div>
-                  <span className='block text-xs text-muted-foreground mb-2'>
-                    Default categories
-                    <span className='ml-1 opacity-70'>
-                      (used where there is no suggestion or override)
-                    </span>
-                  </span>
+              <Field>
+                <FieldLabel className={GROUP_LABEL}>Destination</FieldLabel>
+                <ToggleGroup
+                  className='w-full'
+                  disabled={isExporting}
+                  size='sm'
+                  spacing={0}
+                  value={[activeDestination]}
+                  variant='outline'
+                  onValueChange={(next) => {
+                    if (next.length > 0) {
+                      setDestination(next[0] === 'zip' ? 'zip' : 'repo');
+                    }
+                  }}
+                >
+                  <ToggleGroupItem
+                    title={
+                      mode === 'bookmark'
+                        ? 'Append every link to bookmarks.md in the chosen folder'
+                        : 'Write to the git-backed repository, one commit for the batch'
+                    }
+                    className='flex-1'
+                    disabled={!canUseDaemon}
+                    value='repo'
+                  >
+                    {mode === 'bookmark' ? 'Bookmarks folder' : 'Repository'}
+                  </ToggleGroupItem>
+                  <ToggleGroupItem
+                    title={
+                      mode === 'bookmark'
+                        ? 'Download every link in a single markdown file'
+                        : 'Download every clip as a single ZIP file'
+                    }
+                    className='flex-1'
+                    value='zip'
+                  >
+                    {mode === 'bookmark' ? 'Download markdown' : 'ZIP'}
+                  </ToggleGroupItem>
+                </ToggleGroup>
+                {!canUseDaemon && (
+                  <FieldDescription>
+                    {mode === 'bookmark'
+                      ? 'No bookmarks folder is set, so the links will be exported as one markdown file.'
+                      : 'The repository is unavailable, so clips will be exported as a ZIP.'}
+                  </FieldDescription>
+                )}
+              </Field>
+
+              {mode === 'clip' && activeDestination === 'repo' && (
+                <Field>
+                  <FieldLabel className={GROUP_LABEL}>Default categories</FieldLabel>
                   <CategoryPicker
                     available={settings.categories}
                     disabled={isExporting}
@@ -524,7 +554,10 @@ export const TabsPage = () => {
                     onChange={setCategories}
                     onCreate={handleCreateCategory}
                   />
-                  <div className='mt-2 flex flex-wrap gap-2'>
+                  <FieldDescription>
+                    Used where there is no suggestion and no override.
+                  </FieldDescription>
+                  <div className='flex flex-wrap gap-2'>
                     <Button
                       disabled={isExporting || selectedCount === 0}
                       size='sm'
@@ -542,246 +575,233 @@ export const TabsPage = () => {
                       Apply where nothing is set
                     </Button>
                   </div>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+                </Field>
+              )}
+            </FieldGroup>
+          </div>
 
-        <Card>
-          <CardHeader>
-            <div className='flex items-center justify-between'>
-              <CardTitle>{tabs.length} tabs open</CardTitle>
-              <Button disabled={isExporting} size='sm' variant='ghost' onClick={toggleAll}>
-                {allSelected ? 'Deselect all' : 'Select all'}
-              </Button>
-            </div>
-          </CardHeader>
+          {/* Pinned: the batch action must not move as the option list grows. */}
+          <div className='flex shrink-0 flex-col gap-2 border-t p-4'>
+            <Button
+              disabled={
+                selectedCount === 0 ||
+                isExporting ||
+                // Only clips are filed under a category; a bookmark line has none.
+                (mode === 'clip' && activeDestination === 'repo' && activeCategories.length === 0)
+              }
+              className='w-full'
+              onClick={asHandler(mode === 'bookmark' ? handleBookmarkAll : handleExport)}
+            >
+              {exportState.phase === 'clipping'
+                ? `Clipping ${exportState.current}/${exportState.total}...`
+                : exportState.phase === 'compressing'
+                  ? 'Compressing…'
+                  : exportState.phase === 'saving'
+                    ? `Saving ${exportState.total}...`
+                    : mode === 'bookmark'
+                      ? activeDestination === 'repo'
+                        ? `Bookmark ${selectedCount} tab${selectedCount === 1 ? '' : 's'}`
+                        : 'Export Markdown'
+                      : activeDestination === 'repo'
+                        ? 'Save to repository'
+                        : 'Export ZIP'}
+            </Button>
+            <span className='text-center text-[11px] text-muted-foreground'>
+              {selectedCount} of {clippableCount} selected
+            </span>
+          </div>
+        </div>
 
-          <CardContent>
-            <ul className='divide-y divide-border'>
-              {tabs.map((tab) => {
-                const suggestion = suggestions.byId.get(String(tab.id));
-                const resolved = categoriesFor(tab);
-                // Three states worth telling apart: the user chose it, the
-                // daemon suggested it, or nothing applied and it fell through
-                // to the batch default.
-                const origin = tab.categories
-                  ? 'override'
-                  : suggestion && suggestion.source !== 'default'
-                    ? 'suggested'
-                    : 'default';
+        <div className='flex min-w-0 flex-col'>
+          <div className='flex h-10 shrink-0 items-center gap-3 border-b px-4'>
+            <span className='font-heading text-[11px] tracking-wider text-muted-foreground uppercase'>
+              {tabs.length} tabs open
+            </span>
+            <Button
+              className='ml-auto'
+              disabled={isExporting}
+              size='xs'
+              variant='ghost'
+              onClick={toggleAll}
+            >
+              {allSelected ? 'Deselect all' : 'Select all'}
+            </Button>
+          </div>
 
-                return (
-                  <li className='flex items-center gap-3 py-2.5 px-1' key={tab.id}>
-                    <Checkbox
-                      aria-label={`${mode === 'bookmark' ? 'Bookmark' : 'Clip'} ${tab.title}`}
-                      checked={tab.selected}
-                      className='shrink-0'
-                      disabled={!tab.clippable || isExporting}
-                      onCheckedChange={() => toggleTab(tab.id)}
+          <div className='min-h-0 flex-1 overflow-y-auto'>
+            {tabs.map((tab) => {
+              const suggestion = suggestions.byId.get(String(tab.id));
+              const resolved = categoriesFor(tab);
+              // Three states worth telling apart: the user chose it, the
+              // daemon suggested it, or nothing applied and it fell through
+              // to the batch default.
+              const origin = tab.categories
+                ? 'override'
+                : suggestion && suggestion.source !== 'default'
+                  ? 'suggested'
+                  : 'default';
+
+              return (
+                <div className='flex items-center gap-3 border-b px-4 py-2.5' key={tab.id}>
+                  <Checkbox
+                    aria-label={`${mode === 'bookmark' ? 'Bookmark' : 'Clip'} ${tab.title}`}
+                    checked={tab.selected}
+                    className='shrink-0'
+                    disabled={!tab.clippable || isExporting}
+                    onCheckedChange={() => toggleTab(tab.id)}
+                  />
+                  {tab.favIconUrl && (
+                    <img
+                      alt=''
+                      className='size-4 shrink-0'
+                      src={tab.favIconUrl}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
                     />
-                    {tab.favIconUrl && (
-                      <img
-                        alt=''
-                        className='size-4 shrink-0 rounded-sm'
-                        src={tab.favIconUrl}
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                    )}
-                    <div className={cn('min-w-0 flex-1', !tab.clippable && 'opacity-40')}>
-                      <span className='block text-sm truncate'>{tab.title}</span>
-                      <span className='block text-xs text-muted-foreground truncate'>
-                        {tab.url}
-                      </span>
-                    </div>
+                  )}
+                  <div className={cn('min-w-0 flex-1', !tab.clippable && 'opacity-40')}>
+                    <span className='block truncate text-xs'>{tab.title}</span>
+                    <span className='block truncate font-mono text-[11px] text-muted-foreground'>
+                      {hostOf(tab.url) || tab.url}
+                    </span>
+                  </div>
 
-                    {activeDestination === 'repo' && tab.clippable && (
-                      <Popover>
-                        <PopoverTrigger
-                          render={
-                            <Badge
-                              className={cn(
-                                'max-w-44 shrink-0 cursor-pointer gap-1 font-normal',
-                                origin === 'suggested' && 'border-dashed',
-                                isExporting && 'pointer-events-none opacity-50',
-                              )}
-                              title={
-                                origin === 'suggested'
-                                  ? 'Suggested — click to change'
-                                  : origin === 'override'
-                                    ? 'You chose this — click to change'
-                                    : 'No suggestion; using the default. Click to change'
-                              }
-                              variant={origin === 'default' ? 'outline' : 'secondary'}
-                            />
-                          }
-                        >
-                          {origin === 'suggested' && (
-                            <Sparkles aria-hidden className='size-3 shrink-0' />
-                          )}
-                          <span className='truncate'>{resolved.join(', ')}</span>
-                        </PopoverTrigger>
-                        <PopoverContent className='w-72 space-y-2'>
-                          <CategoryPicker
-                            available={settings.categories}
-                            disabled={isExporting}
-                            selected={resolved}
-                            suggestions={suggestion?.suggestions}
-                            suggestionsState={suggestions.state}
-                            onChange={(next) => {
+                  {mode === 'clip' && activeDestination === 'repo' && tab.clippable && (
+                    <Popover>
+                      <PopoverTrigger
+                        render={
+                          <Badge
+                            className={cn(
+                              'max-w-44 shrink-0 cursor-pointer gap-1 font-normal',
+                              origin === 'suggested' && 'border-dashed',
+                              isExporting && 'pointer-events-none opacity-50',
+                            )}
+                            title={
+                              origin === 'suggested'
+                                ? 'Suggested — click to change'
+                                : origin === 'override'
+                                  ? 'You chose this — click to change'
+                                  : 'No suggestion; using the default. Click to change'
+                            }
+                            variant={origin === 'default' ? 'outline' : 'secondary'}
+                          />
+                        }
+                      >
+                        {origin === 'suggested' && (
+                          <Sparkles aria-hidden className='size-3 shrink-0' />
+                        )}
+                        <span className='truncate'>{resolved.join(', ')}</span>
+                      </PopoverTrigger>
+                      <PopoverContent className='w-72 space-y-2'>
+                        <CategoryPicker
+                          available={settings.categories}
+                          disabled={isExporting}
+                          selected={resolved}
+                          suggestions={suggestion?.suggestions}
+                          suggestionsState={suggestions.state}
+                          onChange={(next) => {
+                            setTabs((prev) =>
+                              prev.map((entry) =>
+                                entry.id === tab.id ? { ...entry, categories: next } : entry,
+                              ),
+                            );
+                          }}
+                          onCreate={handleCreateCategory}
+                        />
+                        {tab.categories && (
+                          <Button
+                            className='w-full'
+                            size='sm'
+                            variant='ghost'
+                            onClick={() => {
                               setTabs((prev) =>
                                 prev.map((entry) =>
-                                  entry.id === tab.id ? { ...entry, categories: next } : entry,
+                                  entry.id === tab.id ? { ...entry, categories: null } : entry,
                                 ),
                               );
                             }}
-                            onCreate={handleCreateCategory}
-                          />
-                          {tab.categories && (
-                            <Button
-                              className='w-full'
-                              size='sm'
-                              variant='ghost'
-                              onClick={() => {
-                                setTabs((prev) =>
-                                  prev.map((entry) =>
-                                    entry.id === tab.id ? { ...entry, categories: null } : entry,
-                                  ),
-                                );
-                              }}
-                            >
-                              Reset to suggestion
-                            </Button>
-                          )}
-                        </PopoverContent>
-                      </Popover>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </CardContent>
-
-          <CardFooter>
-            <div className='flex items-center justify-between w-full'>
-              <span className='text-sm text-muted-foreground'>
-                {selectedCount} of {clippableCount} selected
-              </span>
-              <Button
-                disabled={
-                  selectedCount === 0 ||
-                  isExporting ||
-                  (activeDestination === 'repo' && activeCategories.length === 0)
-                }
-                onClick={asHandler(mode === 'bookmark' ? handleBookmarkAll : handleExport)}
-              >
-                {exportState.phase === 'clipping'
-                  ? `Clipping ${exportState.current}/${exportState.total}...`
-                  : exportState.phase === 'compressing'
-                    ? 'Compressing…'
-                    : exportState.phase === 'saving'
-                      ? `Saving ${exportState.total}...`
-                      : mode === 'bookmark'
-                        ? activeDestination === 'repo'
-                          ? `Bookmark ${selectedCount} tab${selectedCount === 1 ? '' : 's'}`
-                          : 'Export Markdown'
-                        : activeDestination === 'repo'
-                          ? 'Save to repository'
-                          : 'Export ZIP'}
-              </Button>
-            </div>
-          </CardFooter>
-        </Card>
-
-        {exportState.phase === 'done' && exportState.errors.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className='text-destructive text-sm'>
-                {mode === 'bookmark'
-                  ? 'Bookmarks could not be saved'
-                  : `${exportState.errors.length} tab${exportState.errors.length > 1 ? 's' : ''} failed to clip`}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className='space-y-1'>
-                {exportState.errors.map((err) => (
-                  <li className='text-xs text-muted-foreground' key={err}>
-                    {err}
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-        )}
-
-        {exportState.phase === 'done' && exportState.saved && (
-          <Card>
-            <CardHeader>
-              <CardTitle className='text-sm'>
-                {exportState.saved.commit
-                  ? `Committed: ${exportState.saved.commit.message}`
-                  : 'Nothing changed'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className='space-y-1'>
-                {exportState.saved.results.map((result) =>
-                  result.status === 'failed' ? null : (
-                    <li className='text-xs text-muted-foreground' key={result.url}>
-                      <span
-                        className={cn(
-                          'mr-2 uppercase tracking-wide',
-                          result.status === 'created' || result.status === 'upgraded'
-                            ? 'text-primary'
-                            : 'opacity-70',
+                          >
+                            Reset to suggestion
+                          </Button>
                         )}
-                        // `upgraded` means a bookmark stub gained the full page.
-                        title={
-                          result.status === 'upgraded'
-                            ? 'A bookmark for this page became a full clip'
-                            : undefined
-                        }
-                      >
-                        {result.status}
-                      </span>
-                      {result.path}
-                    </li>
-                  ),
-                )}
-              </ul>
-            </CardContent>
-          </Card>
-        )}
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
-        {exportState.phase === 'done' && exportState.bookmarked && (
-          <Card>
-            <CardHeader>
-              <CardTitle className='text-sm'>
-                {exportState.bookmarked.commit
-                  ? `Committed: ${exportState.bookmarked.commit.message}`
-                  : 'Nothing changed'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className='text-xs text-muted-foreground'>
-                {exportState.bookmarked.added} added, {exportState.bookmarked.updated} already saved
-                and updated in place.
-              </p>
-            </CardContent>
-          </Card>
-        )}
+          {exportState.phase === 'done' && (
+            <div className='max-h-56 shrink-0 overflow-y-auto border-t px-4 py-3'>
+              {exportState.errors.length > 0 && (
+                <>
+                  <p className='m-0 mb-1.5 font-heading text-[11px] tracking-wider text-destructive uppercase'>
+                    {mode === 'bookmark'
+                      ? 'The bookmarks could not be saved'
+                      : `${exportState.errors.length} tab${exportState.errors.length > 1 ? 's' : ''} failed to clip`}
+                  </p>
+                  <ul className='m-0 flex list-none flex-col gap-1 p-0'>
+                    {exportState.errors.map((err) => (
+                      <li className='text-[11px] text-muted-foreground' key={err}>
+                        {err}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
 
-        {exportState.phase === 'done' &&
-          exportState.errors.length === 0 &&
-          !exportState.saved &&
-          !exportState.bookmarked && (
-            <p className='text-sm text-muted-foreground text-center'>
-              Export complete. You can close this tab.
-            </p>
+              {exportState.saved && (
+                <>
+                  <p className='m-0 mb-1.5 font-heading text-[11px] tracking-wider text-muted-foreground uppercase'>
+                    {exportState.saved.commit
+                      ? `Committed: ${exportState.saved.commit.message}`
+                      : 'Nothing changed'}
+                  </p>
+                  <ul className='m-0 flex list-none flex-col gap-1 p-0'>
+                    {exportState.saved.results.map((result) =>
+                      result.status === 'failed' ? null : (
+                        <li className='text-[11px] text-muted-foreground' key={result.url}>
+                          <span
+                            className={cn(
+                              'mr-2 uppercase',
+                              result.status === 'created' || result.status === 'upgraded'
+                                ? 'text-primary'
+                                : 'opacity-70',
+                            )}
+                            // `upgraded` means a bookmark stub gained the full page.
+                            title={
+                              result.status === 'upgraded'
+                                ? 'A bookmark for this page became a full clip'
+                                : undefined
+                            }
+                          >
+                            {result.status}
+                          </span>
+                          {result.path}
+                        </li>
+                      ),
+                    )}
+                  </ul>
+                </>
+              )}
+
+              {exportState.bookmarked && (
+                <p className='m-0 text-[11px] text-muted-foreground'>
+                  {exportState.bookmarked.added} added, {exportState.bookmarked.skipped} already
+                  there · {exportState.bookmarked.path}
+                </p>
+              )}
+
+              {exportState.errors.length === 0 && !exportState.saved && !exportState.bookmarked && (
+                <p className='m-0 text-[11px] text-muted-foreground'>
+                  Export complete. You can close this tab.
+                </p>
+              )}
+            </div>
           )}
+        </div>
       </div>
     </div>
   );

@@ -66,7 +66,13 @@ describe('effectivePort', () => {
 
   it('leaves the serialized config untouched, so no override can be persisted', async () => {
     const { effectivePort: resolve, serializeConfig } = await import('./config.ts');
-    const config = { extensions: [], port: 4123, repoPath: null, version: 1 as const };
+    const config = {
+      bookmarksPath: null,
+      extensions: [],
+      port: 4123,
+      repoPath: null,
+      version: 1 as const,
+    };
     const before = serializeConfig(config);
 
     assert.equal(resolve(config.port, 0), 0);

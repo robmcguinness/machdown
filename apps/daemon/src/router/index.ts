@@ -1,4 +1,9 @@
-import { bookmarksSave, readmeRebuild } from './bookmarks.ts';
+import {
+  bookmarksAppend,
+  bookmarksSave,
+  bookmarksSetLocation,
+  readmeRebuild,
+} from './bookmarks.ts';
 import { clipsLookup, clipsRead, clipsSave } from './clips.ts';
 import { configGet, configUpdate } from './config.ts';
 import { gitSync, systemListDirectory, systemOpen } from './system.ts';
@@ -11,7 +16,7 @@ import { repoInit } from './repo.ts';
 
 /** The complete implementation of the shared contract. */
 export const router = os.router({
-  bookmarks: { save: bookmarksSave },
+  bookmarks: { append: bookmarksAppend, save: bookmarksSave, setLocation: bookmarksSetLocation },
   categories: { suggest: categoriesSuggest },
   clips: { lookup: clipsLookup, read: clipsRead, save: clipsSave },
   config: { get: configGet, update: configUpdate },

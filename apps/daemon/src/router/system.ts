@@ -59,18 +59,25 @@ const ALWAYS_HIDDEN = new Set(['.git', 'node_modules', '.Trash', 'Library']);
 const MAX_ENTRIES = 500;
 
 /**
- * Where the picker may look: the home directory, plus the configured repo when
- * it lives outside home, plus an explicit env allowlist for a knowledge base on
- * an external volume.
+ * Where the picker may look: the home directory, plus the configured repo and
+ * bookmarks folder when they live outside home, plus an explicit env allowlist
+ * for a knowledge base on an external volume.
  *
  * The caller is a browser extension page. Rooting this at `/` would turn a
  * paired extension into a filesystem enumerator, which is a far larger grant
  * than "help me pick a folder".
+ *
+ * Exported because `bookmarks.setLocation` containment-checks against exactly
+ * the same set: a folder the picker cannot show must not be settable by typing
+ * its path into the field next to it.
  */
-const allowedRoots = (repoPath: string | null): string[] => {
+export const allowedRoots = (repoPath: string | null, bookmarksPath: string | null): string[] => {
   const roots = [nodeOs.homedir()];
   if (repoPath) {
     roots.push(path.resolve(repoPath));
+  }
+  if (bookmarksPath) {
+    roots.push(path.resolve(bookmarksPath));
   }
 
   for (const extra of env.MACHDOWN_BROWSE_ROOTS.split(':')) {
@@ -146,7 +153,7 @@ const describe = async (full: string, name: string): Promise<DirectoryEntry> => 
 export const systemListDirectory = os.system.listDirectory
   .use(authed)
   .handler(async ({ context, errors, input }) => {
-    const roots = allowedRoots(context.state.config.repoPath);
+    const roots = allowedRoots(context.state.config.repoPath, context.state.config.bookmarksPath);
     const home = nodeOs.homedir();
 
     const rootEntries = await Promise.all(

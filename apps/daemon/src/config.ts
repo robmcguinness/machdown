@@ -30,6 +30,8 @@ export type PairedExtension = {
 };
 
 export type DaemonConfig = {
+  /** Folder holding `bookmarks.md`; `null` until the user picks one. */
+  bookmarksPath: string | null;
   extensions: PairedExtension[];
   port: number;
   repoPath: string | null;
@@ -60,6 +62,7 @@ export const qmdDbPath = (): string =>
   qmdDbOverride() ?? path.join(CONFIG_DIR, 'qmd', 'index.sqlite');
 
 const DEFAULTS: DaemonConfig = {
+  bookmarksPath: null,
   extensions: [],
   port: DEFAULT_DAEMON_PORT,
   repoPath: null,
@@ -179,6 +182,12 @@ export const loadDaemonConfig = async (): Promise<{
     issues,
   });
 
+  const bookmarksPath = readField(z.string().min(1).nullable(), stored.bookmarksPath, {
+    fallback: DEFAULTS.bookmarksPath,
+    field: 'bookmarksPath',
+    issues,
+  });
+
   // Drop only the entries that are unusable. Losing every pairing because one
   // record is malformed would be a worse outcome than losing that one.
   const rawExtensions = Array.isArray(stored.extensions) ? stored.extensions : [];
@@ -198,6 +207,7 @@ export const loadDaemonConfig = async (): Promise<{
 
   return {
     config: {
+      bookmarksPath,
       extensions,
       port,
       repoPath: envRepo ? path.resolve(expandHome(envRepo)) : storedRepo,

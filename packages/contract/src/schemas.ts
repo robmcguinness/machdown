@@ -143,6 +143,39 @@ export const SaveBookmarksResultSchema = z.object({
   updated: z.number().int().nonnegative(),
 });
 
+/**
+ * One line in `bookmarks.md`.
+ *
+ * Deliberately narrower than `BookmarkPayloadSchema`: the file is a plain
+ * append-only list, so a bookmark carries no categories and no note — only
+ * what the line itself shows.
+ */
+export const BookmarkLinkSchema = z.object({
+  siteName: z.string().optional(),
+  title: z.string(),
+  url: z.url(),
+});
+
+export const AppendBookmarksRequestSchema = z.object({
+  links: z.array(BookmarkLinkSchema).min(1),
+});
+
+export const AppendBookmarksResultSchema = z.object({
+  added: z.number().int().nonnegative(),
+  path: z.string(),
+  /** Already present in the file, or repeated inside this batch. */
+  skipped: z.number().int().nonnegative(),
+});
+
+/** Where `bookmarks.md` lives; `null` until the user picks a folder. */
+export const BookmarksLocationSchema = z.object({
+  path: z.string().nullable(),
+});
+
+export const SetBookmarksLocationRequestSchema = z.object({
+  path: z.string().min(1),
+});
+
 export const ClipLookupResultSchema = z.object({
   exists: z.boolean(),
   /** Lets the popup say "bookmarked" rather than "already clipped". */
@@ -352,6 +385,8 @@ export const QmdStatusSchema = z.object({
 });
 
 export const HealthSchema = z.object({
+  /** The bookmarks folder, independent of the clip repository. */
+  bookmarks: BookmarksLocationSchema,
   ok: z.literal(true),
   paired: z.boolean(),
   protocol: z.number().int(),
@@ -438,6 +473,10 @@ export type CommitInfo = z.infer<typeof CommitInfoSchema>;
 export type SaveClipsRequest = z.infer<typeof SaveClipsRequestSchema>;
 export type SaveClipsResult = z.infer<typeof SaveClipsResultSchema>;
 export type SaveBookmarksResult = z.infer<typeof SaveBookmarksResultSchema>;
+export type BookmarkLink = z.infer<typeof BookmarkLinkSchema>;
+export type AppendBookmarksRequest = z.infer<typeof AppendBookmarksRequestSchema>;
+export type AppendBookmarksResult = z.infer<typeof AppendBookmarksResultSchema>;
+export type BookmarksLocation = z.infer<typeof BookmarksLocationSchema>;
 export type ClipLookupResult = z.infer<typeof ClipLookupResultSchema>;
 export type ClipFrontmatter = z.infer<typeof ClipFrontmatterSchema>;
 export type ClipDocument = z.infer<typeof ClipDocumentSchema>;

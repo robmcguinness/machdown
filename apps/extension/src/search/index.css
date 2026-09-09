@@ -1,1 +1,9 @@
 @import '../../styles.css';
+
+/* The three-pane shell measures itself against the window, so the chain from
+   the viewport down to the React root must carry a real height. */
+html,
+body {
+  height: 100%;
+  margin: 0;
+}

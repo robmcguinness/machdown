@@ -3,6 +3,15 @@
 Run `pnpm --filter @machdown/extension test` for regression tests and
 `pnpm --filter @machdown/extension build` to type-check and bundle the extension.
 
+## Registry components
+
+`src/components/ui` holds shadcn registry output. Regenerate a file with
+`pnpm dlx shadcn@latest add <name> --overwrite` from this folder, and do not edit
+it by hand. The folder is excluded from oxlint and oxfmt, so a re-sync stays a
+clean diff. Put each customization in a wrapper under `src/components`:
+`StatusBadge.tsx` adds the warning and success tones to the registry badge, and
+`Toaster.tsx` makes the registry toaster follow the extension's `.dark` class.
+
 ## First init
 
 Initializing a fresh folder seeds its repository config with the extension's
@@ -32,12 +41,23 @@ ordering, continued processing, and progress counts.
 
 ## Bookmark batches
 
-The tabs page has a "Bookmarks only" mode next to full clips. It sends every
-selected tab's title and link in one `bookmarks.save` request, so the daemon
-writes one stub file per tab and one commit. No page is extracted and no host
-permission is requested. Without the daemon the same selection downloads as a
-single `bookmarks-<date>.md` link list built by `buildTabLinksMarkdown`, which
-the markdown tests cover.
+Bookmarks live outside the clip repository. The options page asks for a
+bookmarks folder, and every bookmark is appended to one `bookmarks.md` in it,
+under a `## YYYY-MM-DD` heading for the day. Lines look like
+`- [Title](https://…) · example.com` and carry no categories. A link whose URL
+is already in the file is skipped, so saving the same window twice adds
+nothing.
+
+The tabs page has a "Bookmarks only" mode next to full clips, and the popup has
+"Bookmark only" for one page plus "Save N tabs" for the window. All of them send
+one `bookmarks.append` request. No page is extracted and no host permission is
+requested. Without a bookmarks folder the same selection downloads as a single
+`bookmarks-<date>.md` link list built by `buildTabLinksMarkdown`, which the
+markdown tests cover.
+
+The daemon still serves `bookmarks.save`, which writes one stub document per
+link and commits. Nothing in the extension calls it any more; it stays so a
+repository written by an older version keeps working.
 
 ## ZIP exports
 

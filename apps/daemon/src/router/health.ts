@@ -58,6 +58,7 @@ export const health = os.health.handler(async ({ context }) => {
   ]);
 
   return {
+    bookmarks: { path: config.bookmarksPath },
     ok: true as const,
     paired: config.extensions.length > 0,
     protocol: PROTOCOL_VERSION,

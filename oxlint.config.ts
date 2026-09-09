@@ -6,13 +6,15 @@ import {
   reactPlugins,
   reactRules,
   rm3Config,
-  shadcnRulesOff,
 } from '@rm3/oxlint-config';
 
 export default defineConfig({
   env: { browser: true, serviceworker: true },
   extends: [rm3Config],
   globals: { browser: 'readonly', chrome: 'readonly' },
+  // Registry output from `shadcn add`. Never hand-edited; customizations live in
+  // wrappers under src/components. tsc still checks these files.
+  ignorePatterns: ['apps/extension/src/components/ui/**'],
   overrides: [
     {
       env: { browser: false, node: true, serviceworker: false },
@@ -32,13 +34,6 @@ export default defineConfig({
     {
       files: ['apps/daemon/src/test-helpers.ts'],
       rules: { 'node/no-process-env': 'off', 'typescript/no-floating-promises': 'off' },
-    },
-    {
-      files: ['apps/extension/src/components/ui/**'],
-      plugins: [...reactPlugins],
-      // react-doctor's twin of `react/no-array-index-key`, which
-      // `shadcnRulesOff` already turns off for the same regenerated files.
-      rules: { ...shadcnRulesOff, 'react-doctor/no-array-index-as-key': 'off' },
     },
     {
       files: ['apps/extension/build_scripts/**', 'apps/extension/*.config.ts'],
