@@ -74,7 +74,8 @@ export const CategoryPicker = ({
     return all;
   }, [available, suggestions, selected]);
 
-  const unapplied = suggestions.filter((suggestion) => !selected.includes(suggestion.category));
+  const chosen = new Set(selected);
+  const unapplied = suggestions.filter((suggestion) => !chosen.has(suggestion.category));
 
   const typed = query.trim();
 
@@ -132,8 +133,9 @@ export const CategoryPicker = ({
     // have to be able to take the last chip away. Callers that need a category
     // gate their own save button on it.
 
+    const known = new Set(available);
     for (const category of cleaned) {
-      if (!available.includes(category)) {
+      if (!known.has(category)) {
         onCreate?.(category);
       }
     }
