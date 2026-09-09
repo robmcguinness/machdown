@@ -23,6 +23,15 @@ captures still use one save request and one Git commit. The batch tests force
 out-of-order completion and a failed tab to verify the concurrency bound, result
 ordering, continued processing, and progress counts.
 
+## Bookmark batches
+
+The tabs page has a "Bookmarks only" mode next to full clips. It sends every
+selected tab's title and link in one `bookmarks.save` request, so the daemon
+writes one stub file per tab and one commit. No page is extracted and no host
+permission is requested. Without the daemon the same selection downloads as a
+single `bookmarks-<date>.md` link list built by `buildTabLinksMarkdown`, which
+the markdown tests cover.
+
 ## ZIP exports
 
 ZIP compression runs in a bundled module worker, keeping the tabs page responsive
