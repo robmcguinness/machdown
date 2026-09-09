@@ -370,14 +370,26 @@ export const PairResultSchema = z.object({
   token: z.string(),
 });
 
+/** Local settings applied only when repo.init creates the config file. */
+export const RepoInitConfigSeedSchema = MachdownConfigSchema.pick({
+  categories: true,
+  defaultCategory: true,
+  suggestCategories: true,
+}).partial();
+
+export type RepoInitConfigSeed = z.infer<typeof RepoInitConfigSeedSchema>;
+
 export const RepoInitRequestSchema = z.object({
   path: z.string().min(1),
   /** Move pre-existing top-level `*.md` files into `clips/`. */
   adoptFlatClips: z.boolean().default(false),
+  config: RepoInitConfigSeedSchema.optional(),
 });
 
 export const RepoInitResultSchema = z.object({
   commit: CommitInfoSchema,
+  /** True when this call created `.machdown/config.json`. */
+  configCreated: z.boolean(),
   migrated: z.number().int().nonnegative(),
   repo: RepoStatusSchema,
   /**

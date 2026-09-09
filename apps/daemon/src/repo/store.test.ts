@@ -3,6 +3,8 @@ import type { ParsedDocument } from './frontmatter.ts';
 import {
   CLIP_READ_CONCURRENCY,
   buildClipIndex,
+  initConfig,
+  CONFIG_FILE,
   invalidateClipSnapshot,
   loadClipIndex,
   lookupByUrl,
@@ -13,10 +15,12 @@ import {
   scanClips,
   warmClipSnapshot,
 } from './store.ts';
-import { chmod, mkdir, readFile, rename, rm, symlink } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { describe, test } from 'node:test';
 import { makeRepo, writeClip } from '#test-helpers.ts';
 import assert from 'node:assert/strict';
+import os from 'node:os';
+import { DEFAULT_CONFIG, MachdownConfigSchema } from '@machdown/contract';
 import path from 'node:path';
 import { PathRejectedError } from './paths.ts';
 import { getLog } from '#server/request-store.ts';
@@ -398,5 +402,79 @@ describe('warmClipSnapshot', () => {
       invalidateClipSnapshot(repo);
       await rm(repo, { force: true, recursive: true });
     }
+  });
+});
+
+describe('initConfig', () => {
+  test('seeds a fresh config, sanitizing and deduplicating categories', async (t) => {
+    const repo = await mkdtemp(path.join(os.tmpdir(), 'machdown-seed-'));
+    t.after(() => rm(repo, { force: true, recursive: true }));
+    const expected = {
+      ...DEFAULT_CONFIG,
+      categories: ['Research', 'Reading'],
+      defaultCategory: 'Reading',
+      suggestCategories: false,
+    };
+    const result = await initConfig(repo, {
+      categories: ['Research ', 'Research', 'Reading'],
+      defaultCategory: 'Reading ',
+      suggestCategories: false,
+    });
+    assert.deepEqual(result, { config: expected, created: true });
+    assert.deepEqual(
+      MachdownConfigSchema.parse(JSON.parse(await readFile(path.join(repo, CONFIG_FILE), 'utf8'))),
+      expected,
+    );
+  });
+
+  test('keeps an existing fixture config and ignores the seed', async (t) => {
+    const repo = await makeRepo();
+    t.after(() => rm(repo, { force: true, recursive: true }));
+    const before = await readFile(path.join(repo, CONFIG_FILE), 'utf8');
+    const result = await initConfig(repo, {
+      categories: ['Local'],
+      defaultCategory: 'Local',
+      suggestCategories: false,
+    });
+    assert.equal(result.created, false);
+    assert.deepEqual(result.config, MachdownConfigSchema.parse(JSON.parse(before)));
+    assert.deepEqual(
+      MachdownConfigSchema.parse(JSON.parse(await readFile(path.join(repo, CONFIG_FILE), 'utf8'))),
+      MachdownConfigSchema.parse(JSON.parse(before)),
+    );
+  });
+
+  test('appends a default category missing from the seeded list', async (t) => {
+    const repo = await mkdtemp(path.join(os.tmpdir(), 'machdown-seed-'));
+    t.after(() => rm(repo, { force: true, recursive: true }));
+    const { config, created } = await initConfig(repo, {
+      categories: ['Research'],
+      defaultCategory: 'Reading',
+    });
+    assert.equal(created, true);
+    assert.deepEqual(config.categories, ['Research', 'Reading']);
+    assert.equal(config.defaultCategory, 'Reading');
+    assert.deepEqual(await readConfig(repo), config);
+  });
+
+  test('uses DEFAULT_CONFIG without a seed on a fresh directory', async (t) => {
+    const repo = await mkdtemp(path.join(os.tmpdir(), 'machdown-seed-'));
+    t.after(() => rm(repo, { force: true, recursive: true }));
+    assert.deepEqual(await initConfig(repo), { config: DEFAULT_CONFIG, created: true });
+    assert.deepEqual(
+      MachdownConfigSchema.parse(JSON.parse(await readFile(path.join(repo, CONFIG_FILE), 'utf8'))),
+      DEFAULT_CONFIG,
+    );
+  });
+
+  test('repairs a malformed existing file without applying the seed', async (t) => {
+    const repo = await makeRepo();
+    t.after(() => rm(repo, { force: true, recursive: true }));
+    await writeFile(path.join(repo, CONFIG_FILE), '{broken');
+    assert.deepEqual(await initConfig(repo, { categories: ['Local'], defaultCategory: 'Local' }), {
+      config: DEFAULT_CONFIG,
+      created: false,
+    });
+    assert.deepEqual(await readConfig(repo), DEFAULT_CONFIG);
   });
 });

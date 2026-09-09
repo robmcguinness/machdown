@@ -7,6 +7,7 @@ import {
   resolveClipPath,
   resolveRepoRelative,
   sanitizeCategories,
+  sanitizeCategory,
   toRepoRelative,
 } from './paths.ts';
 import {
@@ -18,15 +19,17 @@ import {
   type DocumentKind,
   type FilenamePattern,
   type MachdownConfig,
+  type RepoInitConfigSeed,
   MachdownConfigSchema,
 } from '@machdown/contract';
-import { mkdir, readFile, readdir, stat } from 'node:fs/promises';
+import { lstat, mkdir, readFile, readdir, stat } from 'node:fs/promises';
 import { type ParsedDocument, parseDocument, serializeDocument } from './frontmatter.ts';
 import { LRUCache } from 'lru-cache';
 import { createMutex, createPool, type Mutex } from '#util/mutex.ts';
 import { toUrlKey } from './urlKey.ts';
 import path from 'node:path';
 import { z } from 'zod';
+import { isErrnoException } from '#util/errors.ts';
 import { watch, type FSWatcher } from 'node:fs';
 
 export const CONFIG_FILE = `${META_DIR}/config.json`;
@@ -145,6 +148,42 @@ export const readConfig = async (repoPath: string): Promise<MachdownConfig> => {
 
 export const writeConfig = async (repoPath: string, config: MachdownConfig): Promise<void> => {
   await writeJson(path.join(repoPath, CONFIG_FILE), config);
+};
+
+/** Seeds only an absent config; existing files retain readConfig's repair behavior. */
+export const initConfig = async (
+  repoPath: string,
+  seed?: RepoInitConfigSeed,
+): Promise<{ config: MachdownConfig; created: boolean }> => {
+  // Parsing failure does not mean absence: even a malformed existing file
+  // belongs to the repository and must ignore the caller's seed.
+  const existing = await lstat(path.join(repoPath, CONFIG_FILE)).catch((cause: unknown) => {
+    if (isErrnoException(cause) && cause.code === 'ENOENT') {
+      return null;
+    }
+    throw cause;
+  });
+  if (existing !== null) {
+    const config = await readConfig(repoPath);
+    await writeConfig(repoPath, config);
+    return { config, created: false };
+  }
+
+  const categories = [
+    ...new Set((seed?.categories ?? DEFAULT_CONFIG.categories).map(sanitizeCategory)),
+  ];
+  const defaultCategory = sanitizeCategory(seed?.defaultCategory ?? DEFAULT_CONFIG.defaultCategory);
+  // Match readConfig's key order so a repeated init does not create a commit.
+  const config = MachdownConfigSchema.parse({
+    ...DEFAULT_CONFIG,
+    categories: categories.includes(defaultCategory)
+      ? categories
+      : [...categories, defaultCategory],
+    defaultCategory,
+    suggestCategories: seed?.suggestCategories ?? DEFAULT_CONFIG.suggestCategories,
+  });
+  await writeConfig(repoPath, config);
+  return { config, created: true };
 };
 
 /** Recursively lists every `*.md` under `clips/`. */

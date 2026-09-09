@@ -2,10 +2,10 @@ import { CLIPS_DIR, META_DIR } from '#repo/paths.ts';
 import { authed, os } from './base.ts';
 import { clearHealthCache } from './health.ts';
 import { commitIfChanged, init, isGitRepo, status } from '#repo/git.ts';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { readConfig, invalidateClipSnapshot, warmClipSnapshot, writeConfig } from '#repo/store.ts';
+import { mkdir, readdir, writeFile } from 'node:fs/promises';
+import { readConfig, invalidateClipSnapshot, warmClipSnapshot, initConfig } from '#repo/store.ts';
 import { CommandError } from '#util/exec.ts';
-import type { MachdownConfig } from '@machdown/contract';
+import type { RepoInitConfigSeed } from '@machdown/contract';
 import { adoptFlatClips } from '#repo/adopt.ts';
 import {
   type MigrationReport,
@@ -23,7 +23,7 @@ const GITIGNORE = `.DS_Store
 node_modules
 `;
 
-const ensureScaffold = async (repoPath: string): Promise<MachdownConfig> => {
+const ensureScaffold = async (repoPath: string, seed?: RepoInitConfigSeed) => {
   await mkdir(path.join(repoPath, META_DIR), { recursive: true });
   // One flat directory for clips and bookmarks alike; categories are metadata.
   await mkdir(path.join(repoPath, CLIPS_DIR), { recursive: true });
@@ -33,11 +33,7 @@ const ensureScaffold = async (repoPath: string): Promise<MachdownConfig> => {
     // Already present: leave the user's version alone.
   });
 
-  // Writing back what we read is a no-op on an initialized repo and seeds the
-  // defaults on a fresh one, so scaffolding stays idempotent either way.
-  const config = await readConfig(repoPath);
-  await writeConfig(repoPath, config);
-  return config;
+  return initConfig(repoPath, seed);
 };
 
 const commitMessage = (adopted: number, layout: MigrationReport | null): string => {
@@ -73,7 +69,7 @@ export const repoInit = os.repo.init.use(authed).handler(async ({ context, error
         await init(repoPath);
       }
 
-      await ensureScaffold(repoPath);
+      const { created: configCreated } = await ensureScaffold(repoPath, input.config);
 
       const migrated = input.adoptFlatClips ? await adoptFlatClips(repoPath) : 0;
 
@@ -94,7 +90,8 @@ export const repoInit = os.repo.init.use(authed).handler(async ({ context, error
         'README.md',
         '.gitignore',
         '.machdown',
-        'clips',
+        // Git cannot commit an empty directory as a pathspec on first init.
+        ...((await readdir(path.join(repoPath, CLIPS_DIR))).length > 0 ? [CLIPS_DIR] : []),
         ...migrationPaths(repoPath),
       ]);
       markMigrationCommitted(repoPath);
@@ -108,6 +105,7 @@ export const repoInit = os.repo.init.use(authed).handler(async ({ context, error
 
       return {
         commit,
+        configCreated,
         layout: layout
           ? {
               bookmarksConverted: layout.bookmarksConverted,
