@@ -40,8 +40,10 @@ export const init = async (repoPath: string): Promise<void> => {
 };
 
 const hasIdentity = async (repoPath: string): Promise<boolean> => {
-  const name = await git(repoPath, ['config', '--get', 'user.name'], [1]);
-  const email = await git(repoPath, ['config', '--get', 'user.email'], [1]);
+  const [name, email] = await Promise.all([
+    git(repoPath, ['config', '--get', 'user.name'], [1]),
+    git(repoPath, ['config', '--get', 'user.email'], [1]),
+  ]);
   return (
     name.code === 0 && email.code === 0 && name.stdout.trim() !== '' && email.stdout.trim() !== ''
   );

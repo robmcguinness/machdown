@@ -1,12 +1,6 @@
 import { defineConfig } from 'oxlint';
 
-import {
-  reactDoctorJsPlugin,
-  reactDoctorRules,
-  reactPlugins,
-  reactRules,
-  rm3Config,
-} from '@rm3/oxlint-config';
+import { rm3Config } from '@rm3/oxlint-config';
 
 export default defineConfig({
   env: { browser: true, serviceworker: true },
@@ -16,20 +10,14 @@ export default defineConfig({
   // wrappers under src/components. tsc still checks these files.
   ignorePatterns: ['apps/extension/src/components/ui/**'],
   overrides: [
+    // React and react-doctor are on via rm3Config; the extension renders in
+    // the browser only, so no `ssr` bucket.
     {
       env: { browser: false, node: true, serviceworker: false },
       files: ['apps/daemon/**', 'packages/contract/**'],
       rules: { 'new-cap': 'off' },
     },
     { files: ['packages/contract/**'], rules: { 'import/no-nodejs-modules': 'error' } },
-    {
-      files: ['apps/extension/**'],
-      // react-doctor runs as an oxlint JS plugin. The extension renders in the
-      // browser only, so no `ssr` bucket.
-      jsPlugins: [reactDoctorJsPlugin],
-      plugins: [...reactPlugins],
-      rules: { ...reactRules, ...reactDoctorRules },
-    },
     { files: ['apps/extension/src/lib/async.ts'], rules: { 'no-console': 'off' } },
     {
       files: ['apps/daemon/src/test-helpers.ts'],

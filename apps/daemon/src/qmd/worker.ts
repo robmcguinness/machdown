@@ -248,16 +248,19 @@ const runSearch = async (
       return hasVectorIndex ? withModelPhase('vec', vector) : vector();
     })();
 
-    docs = results
-      .filter((result) => minScore === undefined || result.score >= minScore)
-      .map((result) => ({
-        body: result.body,
-        chunkPos: result.chunkPos,
-        docid: result.docid,
-        filepath: result.filepath,
-        score: result.score,
-        title: result.title,
-      }));
+    docs = [];
+    for (const result of results) {
+      if (minScore === undefined || result.score >= minScore) {
+        docs.push({
+          body: result.body,
+          chunkPos: result.chunkPos,
+          docid: result.docid,
+          filepath: result.filepath,
+          score: result.score,
+          title: result.title,
+        });
+      }
+    }
   }
 
   if (!request.enrich) {

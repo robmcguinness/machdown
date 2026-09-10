@@ -135,8 +135,7 @@ export const bookmarksSave = os.bookmarks.save
     await ensureMigrated(repoPath, context.state.withRepo);
 
     return context.state.withRepo(async () => {
-      const config = await readConfig(repoPath);
-      const index = await loadClipIndex(repoPath);
+      const [config, index] = await Promise.all([readConfig(repoPath), loadClipIndex(repoPath)]);
 
       const changedPaths = ['README.md', ...migrationPaths(repoPath)];
       let added = 0;

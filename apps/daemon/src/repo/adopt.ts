@@ -18,12 +18,14 @@ import { toUrlKey } from './urlKey.ts';
  */
 export const adoptFlatClips = async (repoPath: string): Promise<number> => {
   const entries = await readdir(repoPath, { withFileTypes: true });
-  const loose = entries
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
-    .map((entry) => entry.name)
+  const loose: string[] = [];
+  for (const entry of entries) {
     // README.md is generated, never adopted.
-    .filter((name) => name.toLowerCase() !== 'readme.md')
-    .toSorted();
+    if (entry.isFile() && entry.name.endsWith('.md') && entry.name.toLowerCase() !== 'readme.md') {
+      loose.push(entry.name);
+    }
+  }
+  const sortedLoose = loose.toSorted();
 
   if (loose.length === 0) {
     return 0;
@@ -34,7 +36,7 @@ export const adoptFlatClips = async (repoPath: string): Promise<number> => {
 
   let migrated = 0;
 
-  for (const name of loose) {
+  for (const name of sortedLoose) {
     const from = path.join(repoPath, name);
     const source = await readFile(from, 'utf8').catch(() => null);
     if (source === null) {

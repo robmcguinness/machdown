@@ -26,14 +26,14 @@ export const searchQuery = os.search.query
         repoPath: context.repoPath,
       });
 
-      const wanted = input.categories;
-      const kinds = input.kinds;
+      const wanted = new Set(input.categories);
+      const kinds = new Set(input.kinds);
 
-      const results = hits
-        .filter(
-          (hit) => !wanted?.length || hit.categories?.some((category) => wanted.includes(category)),
-        )
-        .filter((hit) => !kinds?.length || kinds.includes(hit.kind));
+      const results = hits.filter(
+        (hit) =>
+          (wanted.size === 0 || hit.categories?.some((category) => wanted.has(category))) &&
+          (kinds.size === 0 || kinds.has(hit.kind)),
+      );
 
       return { mode: input.mode, results, tookMs: Date.now() - startedAt };
     } catch (error) {

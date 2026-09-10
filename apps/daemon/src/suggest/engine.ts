@@ -390,6 +390,7 @@ type RankOptions = {
 const rank = (ctx: SuggestContext, options: RankOptions): CategorySuggestion[] => {
   const { counts, domain, keyword, limit, reason, semantic } = options;
   const combined = new Map<string, number>();
+  const configured = new Set(ctx.config.categories);
 
   for (const [category, score] of semantic.scores) {
     combined.set(category, (combined.get(category) ?? 0) + SEMANTIC_WEIGHT * score);
@@ -401,7 +402,7 @@ const rank = (ctx: SuggestContext, options: RankOptions): CategorySuggestion[] =
     combined.set(category, (combined.get(category) ?? 0) + KEYWORD_WEIGHT * score);
   }
   for (const category of combined.keys()) {
-    if (ctx.config.categories.includes(category)) {
+    if (configured.has(category)) {
       combined.set(category, (combined.get(category) ?? 0) + CONFIGURED_BONUS);
     }
   }
@@ -415,7 +416,7 @@ const rank = (ctx: SuggestContext, options: RankOptions): CategorySuggestion[] =
       score: raw / max,
       // A category the domain alone produced should not claim to be semantic.
       evidence: semantic.evidence.get(category) ?? [],
-      isNew: !ctx.config.categories.includes(category),
+      isNew: !configured.has(category),
       reason: semantic.scores.has(category) ? reason : domain.has(category) ? 'domain' : 'keyword',
     }))
     .toSorted(
@@ -436,7 +437,7 @@ const rank = (ctx: SuggestContext, options: RankOptions): CategorySuggestion[] =
       category,
       confidence: 'low',
       evidence: [],
-      isNew: !ctx.config.categories.includes(category),
+      isNew: !configured.has(category),
       reason: 'frequent',
       score: FREQUENT_MAX_SCORE * ((counts.get(category) ?? 0) / maxCount),
     }));
@@ -492,6 +493,7 @@ const suggestOne = async (
   // Stored but unfiled pages still need an inferred category.
   const existingFiled = existing ? filedCategories(existing) : [];
   if (existing && existingFiled.length > 0) {
+    const configured = new Set(ctx.config.categories);
     const result: CategorySuggestItemResult = {
       id: item.id,
       selected: existingFiled,
@@ -500,7 +502,7 @@ const suggestOne = async (
         category,
         confidence: 'high' as const,
         evidence: [{ relPath: existing.relPath, score: 1, title: item.title }],
-        isNew: !ctx.config.categories.includes(category),
+        isNew: !configured.has(category),
         reason: 'existing' as const,
         score: 1,
       })),

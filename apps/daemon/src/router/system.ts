@@ -197,8 +197,10 @@ export const systemListDirectory = os.system.listDirectory
     }
 
     const named = dirents
-      .filter((entry) => input.showHidden || !entry.name.startsWith('.'))
-      .filter((entry) => !ALWAYS_HIDDEN.has(entry.name))
+      .filter(
+        (entry) =>
+          (input.showHidden || !entry.name.startsWith('.')) && !ALWAYS_HIDDEN.has(entry.name),
+      )
       .toSorted((a, b) => a.name.localeCompare(b.name));
 
     const directories: DirectoryEntry[] = [];

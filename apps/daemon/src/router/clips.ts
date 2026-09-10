@@ -1,11 +1,4 @@
-import {
-  type ClipIndex,
-  loadClipIndex,
-  lookupByUrl,
-  readClip,
-  readConfig,
-  saveClip,
-} from '#repo/store.ts';
+import { loadClipIndex, lookupByUrl, readClip, readConfig, saveClip } from '#repo/store.ts';
 import { authed, os, withRepoPath } from './base.ts';
 import { CommandError } from '#util/exec.ts';
 import { PathRejectedError } from '#repo/paths.ts';
@@ -70,8 +63,7 @@ export const clipsSave = os.clips.save
     await ensureMigrated(repoPath, context.state.withRepo);
 
     return context.state.withRepo(async () => {
-      const config = await readConfig(repoPath);
-      const index: ClipIndex = await loadClipIndex(repoPath);
+      const [config, index] = await Promise.all([readConfig(repoPath), loadClipIndex(repoPath)]);
 
       const results: {
         error?: string;

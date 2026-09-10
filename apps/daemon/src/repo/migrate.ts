@@ -297,8 +297,8 @@ const flattenLayout = async (
   const clipsRoot = path.join(repoPath, CLIPS_DIR);
 
   // Only nested files move; a file already sitting flat has nothing to flatten.
-  const nested = (await listNested(clipsRoot)).filter((absPath) =>
-    path.relative(clipsRoot, absPath).includes(path.sep),
+  const nested = (await listNested(clipsRoot)).filter(
+    (absPath) => path.dirname(path.relative(clipsRoot, absPath)) !== '.',
   );
 
   // Reads overlap, renames do not. Overlapping is safe because every source
