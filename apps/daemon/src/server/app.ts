@@ -1,9 +1,10 @@
 import Fastify, {
   LogController,
+  type FastifyBaseLogger,
   type FastifyError,
   type FastifyInstance,
-  type FastifyRequest,
 } from 'fastify';
+import { createFastifyLogger, resolveRedactPaths } from '@rm3/fastify';
 import { addEventFields, currentEvent, enterRequest, setFallbackLog } from './request-store.ts';
 import authPlugin from './plugins/auth.ts';
 import { closeQmd } from '#qmd/client.ts';
@@ -41,12 +42,12 @@ const errorBody = (code: string, message: string) => ({ error: { code, message }
 const quietLogController = new LogController({ disableRequestLogging: true });
 
 /**
- * Everything the wide event must never carry, in one exported list.
+ * The daemon's own secrets, on top of the shared `@rm3/logger` baseline.
  *
- * `authorization` and `cookie` are the two headers that carry the bearer
- * token. `token` and `*.token` cover the raw token wherever a handler hangs
- * one on a logged object. The stored config holds only SHA-256 hashes, so
- * those are not listed.
+ * The baseline already censors `authorization`, `cookie` and `*.token`. A
+ * top-level `token` is named here because pino's `*` matches exactly one
+ * level, so `*.token` misses `{ token }`. The stored config holds only
+ * SHA-256 hashes, so those are not listed.
  *
  * The pairing code is named path by path rather than by a `*.code` wildcard.
  * A wildcard would also censor `err.code` — pino applies a wildcard path to
@@ -55,33 +56,13 @@ const quietLogController = new LogController({ disableRequestLogging: true });
  * the request body of `POST /v1/pair`, so the paths below are where it could
  * surface if a handler ever logged that body.
  */
-export const REDACT_PATHS = [
-  'req.headers.authorization',
-  'req.headers.cookie',
-  'token',
-  '*.token',
-  'code',
-  'body.code',
-  'input.code',
-  'req.body.code',
-];
+const REDACT_EXTRAS = ['token', 'code', 'body.code', 'input.code', 'req.body.code'];
 
 /**
- * The standard Fastify `req` fields, plus the headers.
- *
- * Fastify's own serializer drops headers. They are the difference between
- * knowing a request was refused and knowing *why* — `origin`, `sec-fetch-site`
- * and `content-type` are what the security hook decides on — and without them
- * the `req.headers.*` entries in `REDACT_PATHS` would have nothing to censor.
+ * Everything the wide event must never carry: the shared baseline plus the
+ * daemon's extras, in one exported list for the ratchet test.
  */
-const serializeRequest = (request: FastifyRequest) => ({
-  headers: request.headers,
-  host: request.host,
-  method: request.method,
-  remoteAddress: request.ip,
-  remotePort: request.socket.remotePort,
-  url: request.url,
-});
+export const REDACT_PATHS: readonly string[] = resolveRedactPaths(REDACT_EXTRAS);
 
 /**
  * Test-only escape hatch for `buildApp`.
@@ -98,24 +79,31 @@ export const buildApp = async (
   state: DaemonState,
   loggerOverride?: LoggerOverride,
 ): Promise<FastifyInstance> => {
+  // The shared serializer keeps an allow-list of headers rather than none:
+  // `origin`, `sec-fetch-site` and `content-type` are what the security hook
+  // decides on, and they are the difference between knowing a request was
+  // refused and knowing why.
+  //
+  // Typed as `FastifyBaseLogger` so `Fastify()` infers its default logger
+  // generic instead of pino's, which would widen the returned instance type.
+  const logger: FastifyBaseLogger = createFastifyLogger(
+    {
+      // `info` is usable because the log controller removes the per-request
+      // pair that made it noise for a single-user local daemon.
+      level: loggerOverride?.level ?? env.MACHDOWN_LOG_LEVEL,
+      // A test that captures output wants the raw NDJSON rather than
+      // prettied text; a terminal wants colour.
+      pretty: !loggerOverride?.stream && process.stdout.isTTY,
+      redactPaths: REDACT_EXTRAS,
+    },
+    loggerOverride?.stream,
+  );
+
   const app = Fastify({
     bodyLimit: BODY_LIMIT,
     genReqId: () => randomUUID(),
     logController: quietLogController,
-    logger: {
-      // `info` is usable because the log controller removes the per-request
-      // pair that made it noise for a single-user local daemon.
-      level: loggerOverride?.level ?? env.MACHDOWN_LOG_LEVEL,
-      redact: REDACT_PATHS,
-      serializers: { req: serializeRequest },
-      stream: loggerOverride?.stream,
-      // pino refuses a transport and a stream together, and a test that
-      // captures output wants the raw NDJSON rather than prettied text.
-      transport:
-        !loggerOverride?.stream && process.stdout.isTTY
-          ? { options: { colorize: true, translateTime: 'HH:MM:ss' }, target: 'pino-pretty' }
-          : undefined,
-    },
+    loggerInstance: logger,
     // The client is a browser extension, not a trusted proxy, so it does not
     // get to choose the id its own errors are filed under.
     connectionTimeout: CONNECTION_TIMEOUT_MS,

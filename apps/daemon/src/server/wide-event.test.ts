@@ -137,7 +137,8 @@ describe('the wide request event', () => {
     const { headers } = event.req;
 
     // The header is still reported as present — its value is what is censored.
-    assert.equal(headers.authorization, '[Redacted]');
+    // `@rm3/logger` censors in lower case.
+    assert.equal(headers.authorization, '[redacted]');
     // And the token must not have escaped onto any line by another route.
     assert.ok(
       raw.every((line) => !line.includes(TOKEN)),
@@ -151,7 +152,7 @@ describe('the wide request event', () => {
     const { app, wide } = await captureApp();
 
     await app.inject({
-      headers: { ...authorized, origin: 'https://evil.test' },
+      headers: { ...authorized, origin: 'https://evil.test', 'sec-ch-ua': '"Chrome";v="147"' },
       method: 'GET',
       url: '/v1/health',
     });
@@ -162,6 +163,8 @@ describe('the wide request event', () => {
 
     assert.equal(headers.origin, 'https://evil.test');
     assert.equal(event.res?.statusCode, 403);
+    // And drops the browser boilerplate that explains nothing.
+    assert.equal(headers['sec-ch-ua'], undefined);
 
     await app.close();
   });
@@ -237,8 +240,10 @@ describe('the wide request event', () => {
     // A ratchet, not a tautology: the list is exported so a future field that
     // carries a secret has one obvious place to be added.
     for (const path of [
+      // From the shared baseline, proving it is merged in rather than replaced.
       'req.headers.authorization',
       'req.headers.cookie',
+      // The daemon's own.
       'token',
       'code',
       'req.body.code',
