@@ -1,21 +1,19 @@
-import { extractBatch } from '#lib/batch.ts';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '#components/ui/field.tsx';
 import { ToggleGroup, ToggleGroupItem } from '#components/ui/toggle-group.tsx';
-import type {
-  AppendBookmarksResult,
-  BookmarkLink,
-  ClipPayload,
-  SaveClipsResult,
-  SuggestItem,
-} from '@machdown/contract';
+import type { AppendBookmarksResult, SaveClipsResult } from '@machdown/contract';
+import {
+  downloadClipsZip,
+  ensureHostPermission,
+  extractTabs,
+  tabLinks,
+  useTabSuggestions,
+} from '#common/tabBatch.ts';
 import type { ClipSettings } from '#types/clip.ts';
 import { Popover, PopoverContent, PopoverTrigger } from '#components/ui/popover.tsx';
-import { buildFilename, downloadTabLinks, generateMarkdown } from '#lib/markdown.ts';
 import { describeFailure, toDaemonFailure } from '#common/daemonClient.ts';
-import { clipTab, hostOf, toClipPayload } from '#common/clipTab.ts';
+import { downloadTabLinks } from '#lib/markdown.ts';
+import { hostOf, toClipPayload } from '#common/clipTab.ts';
 import { getHostPermissionPattern } from '#common/pageTarget.ts';
-import { strToU8 } from 'fflate';
-import { zipFiles, type ZipFiles } from '#lib/zip.ts';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { AppSettings } from '#common/appTypes.ts';
 import { Badge } from '#components/ui/badge.tsx';
@@ -26,7 +24,6 @@ import { DaemonStatus } from '#components/DaemonStatus.tsx';
 import { Sparkles } from 'lucide-react';
 import { Spinner } from '#components/ui/spinner.tsx';
 import { cn } from '#lib/utils.ts';
-import { useCategorySuggestions } from '#common/useCategorySuggestions.ts';
 import { useDaemonStatus } from '#common/useDaemonStatus.ts';
 import { useSharedSettings } from '#common/useSharedSettings.ts';
 import { asHandler, runAsync } from '#lib/async.ts';
@@ -112,48 +109,22 @@ export const TabsPage = () => {
   // must not leave the batch pointed at a destination it cannot write to.
   const activeDestination: Destination = canUseDaemon ? (destination ?? 'repo') : 'zip';
 
-  /**
-   * One batched request covering every clippable tab.
-   *
-   * Only the title, URL, and site are available here — the pages have not been
-   * extracted yet, and extracting forty of them just to suggest a category
-   * would defeat the point. The daemon is built for that: it leans on the
-   * same-site signal, which needs no page contents at all.
-   */
-  const suggestItems = useMemo<SuggestItem[] | null>(() => {
-    // Bookmark lines carry no categories, so there is nothing to suggest.
-    if (mode !== 'clip' || activeDestination !== 'repo') {
-      return null;
-    }
-    const clippable = tabs.filter((tab) => tab.clippable);
-    if (clippable.length === 0) {
-      return null;
-    }
-
-    return clippable.slice(0, 50).map((tab) => ({
-      id: String(tab.id),
-      siteName: hostOf(tab.url),
-      title: tab.title,
-      url: tab.url,
-    }));
-  }, [tabs, mode, activeDestination]);
-
-  const suggestions = useCategorySuggestions(client, suggestItems, {
-    enabled: mode === 'clip' && activeDestination === 'repo' && settings.suggestCategories,
-    timeoutMs: 6_000,
-  });
+  // Bookmark lines carry no categories, so there is nothing to suggest.
+  const suggesting = mode === 'clip' && activeDestination === 'repo';
+  const clippable = useMemo(
+    () => (suggesting ? tabs.filter((tab) => tab.clippable) : null),
+    [tabs, suggesting],
+  );
+  const { suggestedFor, suggestions } = useTabSuggestions(
+    client,
+    clippable,
+    suggesting && settings.suggestCategories,
+  );
 
   /** What a tab will actually be filed under: override, then suggestion, then batch. */
   const categoriesFor = useCallback(
-    (tab: TabEntry): string[] => {
-      if (tab.categories) {
-        return tab.categories;
-      }
-      // An empty selection means no suggestion; use the batch categories.
-      const suggested = suggestions.byId.get(String(tab.id))?.selected;
-      return suggested?.length ? suggested : activeCategories;
-    },
-    [suggestions, activeCategories],
+    (tab: TabEntry): string[] => tab.categories ?? suggestedFor(tab.id) ?? activeCategories,
+    [suggestedFor, activeCategories],
   );
 
   const handleCreateCategory = useCallback(
@@ -229,81 +200,31 @@ export const TabsPage = () => {
       return;
     }
 
-    const origins = Array.from(
-      new Set(
-        selected
-          .map((tab) => getHostPermissionPattern(tab.url))
-          .filter((origin): origin is string => origin !== null),
-      ),
-    );
-
-    const hasPermission = await chrome.permissions.contains({ origins });
-    if (!hasPermission) {
-      const granted = await chrome.permissions.request({ origins });
-      if (!granted) {
-        setExportState({
-          errors: ['Host permission denied. Please allow access to clip these tabs.'],
-          phase: 'done',
-        });
-        return;
-      }
+    if (!(await ensureHostPermission(selected))) {
+      setExportState({
+        errors: ['Host permission denied. Please allow access to clip these tabs.'],
+        phase: 'done',
+      });
+      return;
     }
-
-    const clipSettings = toClipSettings(settings);
-    const errors: string[] = [];
-    const files: ZipFiles = {};
-    const payloads: ClipPayload[] = [];
-    const usedNames = new Set<string>();
-    const toRepo = activeDestination === 'repo';
 
     setExportState({ current: 0, errors: [], phase: 'clipping', total: selected.length });
 
-    const extracted = await extractBatch(
-      selected,
-      (tab) => clipTab(tab.id, clipSettings),
-      (completed) => {
-        setExportState({
-          current: completed,
-          errors: [],
-          phase: 'clipping',
-          total: selected.length,
-        });
-      },
-    );
+    // Extracted in selection order so filenames and the single save stay deterministic.
+    const { clips, errors } = await extractTabs(selected, toClipSettings(settings), (completed) => {
+      setExportState({ current: completed, errors: [], phase: 'clipping', total: selected.length });
+    });
 
-    // Assemble in selection order so filenames and the single save stay deterministic.
-    for (const [i, result] of extracted.entries()) {
-      const tab = selected[i];
-      try {
-        if (result.status === 'rejected') {
-          throw result.reason;
-        }
-        const clip = result.value;
-
-        if (toRepo) {
-          // Accumulated rather than sent per tab: forty tabs should produce one
-          // reviewable commit, not forty.
-          payloads.push(toClipPayload(clip, categoriesFor(tab), settings.filenamePattern));
-        } else {
-          let name = buildFilename(clip, settings.filenamePattern);
-          if (usedNames.has(name)) {
-            name = `${name}-${tab.id}`;
-          }
-          usedNames.add(name);
-          files[`${name}.md`] = strToU8(generateMarkdown(clip));
-        }
-      } catch (error) {
-        const msg = `${tab.title}: ${error instanceof Error ? error.message : 'Failed to clip'}`;
-        errors.push(msg);
-      }
-    }
-
-    if (toRepo) {
-      if (payloads.length === 0) {
+    if (activeDestination === 'repo') {
+      if (clips.length === 0) {
         setExportState({ errors, phase: 'done' });
         return;
       }
 
+      // One batched request: forty tabs should produce one reviewable commit, not forty.
+      const payloads = clips.map(({ clip, tab }) =>
+        toClipPayload(clip, categoriesFor(tab), settings.filenamePattern),
+      );
       setExportState({ errors: [...errors], phase: 'saving', total: payloads.length });
 
       try {
@@ -328,21 +249,10 @@ export const TabsPage = () => {
       return;
     }
 
-    if (Object.keys(files).length > 0) {
-      setExportState({
-        errors: [...errors],
-        phase: 'compressing',
-        total: Object.keys(files).length,
-      });
+    if (clips.length > 0) {
+      setExportState({ errors: [...errors], phase: 'compressing', total: clips.length });
       try {
-        const zipped = await zipFiles(files);
-        const blob = new Blob([zipped.buffer], { type: 'application/zip' });
-        const url = URL.createObjectURL(blob);
-        const date = new Date().toISOString().slice(0, 10);
-
-        chrome.downloads.download({ filename: `tabs-${date}.zip`, saveAs: true, url }, () => {
-          URL.revokeObjectURL(url);
-        });
+        downloadClipsZip(clips, settings.filenamePattern);
       } catch (error) {
         errors.push(error instanceof Error ? error.message : 'ZIP compression failed');
       }
@@ -380,14 +290,8 @@ export const TabsPage = () => {
       return;
     }
 
-    const links: BookmarkLink[] = selected.map((tab) => ({
-      siteName: hostOf(tab.url),
-      title: tab.title,
-      url: tab.url,
-    }));
-
     try {
-      const bookmarked = await client.bookmarks.append({ links });
+      const bookmarked = await client.bookmarks.append({ links: tabLinks(selected) });
       setExportState({ bookmarked, errors: [], phase: 'done' });
     } catch (error) {
       setExportState({ errors: [describeFailure(toDaemonFailure(error))], phase: 'done' });

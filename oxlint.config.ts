@@ -37,15 +37,5 @@ export default defineConfig({
       files: ['apps/daemon/src/test-helpers.ts'],
       rules: { 'node/no-process-env': 'off', 'typescript/no-floating-promises': 'off' },
     },
-    {
-      files: ['apps/extension/build_scripts/**', 'apps/extension/*.config.ts'],
-      rules: {
-        // Build-time scripts run once, synchronously, inside Vite's transform hook.
-        'node/no-sync': 'off',
-        'typescript/no-deprecated': 'off',
-        'typescript/no-unsafe-assignment': 'off',
-        'typescript/no-unsafe-member-access': 'off',
-      },
-    },
   ],
 });

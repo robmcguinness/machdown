@@ -1,10 +1,4 @@
 {
   "extends": "@rm3/typescript-config/vite-node.json",
-  "include": [
-    "vite.config.ts",
-    "vite.worker.config.ts",
-    "vite.content.config.ts",
-    "tailwind.config.ts",
-    "build_scripts/*.ts"
-  ]
+  "include": ["vite.config.ts", "vite.worker.config.ts", "vite.content.config.ts"]
 }

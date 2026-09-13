@@ -22,8 +22,8 @@ run the optional local daemon to organize, commit, and search a knowledge base.
 ## Screenshots
 
 <p align="center">
-  <img src="apps/extension/assets/screenshots/popup.png" alt="Machdown popup" width="300" />
-  <img src="apps/extension/assets/screenshots/save-multiple.png" alt="Batch clipping view" width="500" />
+  <img src="apps/extension/screenshots/popup.png" alt="Machdown popup" width="300" />
+  <img src="apps/extension/screenshots/save-multiple.png" alt="Batch clipping view" width="500" />
 </p>
 
 ## Get started as a user

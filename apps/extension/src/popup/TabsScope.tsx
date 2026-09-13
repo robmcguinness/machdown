@@ -1,29 +1,26 @@
-import type { BookmarkLink, ClipPayload, SuggestItem } from '@machdown/contract';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { buildTabLinksMarkdown, downloadTabLinks } from '#lib/markdown.ts';
 import {
-  buildFilename,
-  buildTabLinksMarkdown,
-  downloadTabLinks,
-  generateMarkdown,
-} from '#lib/markdown.ts';
-import { clipTab, hostOf, toClipPayload } from '#common/clipTab.ts';
+  type ExtractedTabs,
+  downloadClipsZip,
+  ensureHostPermission,
+  extractTabs,
+  tabLinks,
+  useTabSuggestions,
+} from '#common/tabBatch.ts';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { hostOf, toClipPayload } from '#common/clipTab.ts';
 import { describeFailure, toDaemonFailure } from '#common/daemonClient.ts';
-import { zipFiles, type ZipFiles } from '#lib/zip.ts';
 import { ActionFooter } from './ActionFooter.tsx';
 import type { AppSettings } from '#common/appTypes.ts';
 import { Button } from '#components/ui/button.tsx';
 import { CategoryPicker } from '#components/CategoryPicker.tsx';
 import { Checkbox } from '#components/ui/checkbox.tsx';
-import type { ClipResult } from '#types/clip.ts';
+import type { ClipPayload } from '@machdown/contract';
 import type { DaemonClient } from '#common/daemonClient.ts';
 import { asHandler } from '#lib/async.ts';
-import { extractBatch } from '#lib/batch.ts';
-import { getHostPermissionPattern } from '#common/pageTarget.ts';
-import { strToU8 } from 'fflate';
 import { toast } from 'sonner';
 import { useActionShortcuts } from './useActionShortcuts.ts';
 import { useActionState } from './useActionState.ts';
-import { useCategorySuggestions } from '#common/useCategorySuggestions.ts';
 import { useClipSettings } from '#common/useClipSettings.ts';
 
 /** A clippable tab of the current window, as the popup lists it. */
@@ -45,8 +42,6 @@ type TabsScopeProps = {
   settings: AppSettings;
   tabs: readonly PopupTab[];
 };
-
-type Extracted = { clips: { clip: ClipResult; tab: PopupTab }[]; errors: string[] };
 
 const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ? '' : 's'}`;
 
@@ -106,74 +101,30 @@ export const TabsScope = ({
     [categories, settings.lastUsedCategories, settings.defaultCategory],
   );
 
-  /** Title and URL only: the pages are not extracted until a save is asked for. */
-  const suggestItems = useMemo<SuggestItem[] | null>(
-    () =>
-      tabs.length === 0
-        ? null
-        : tabs.slice(0, 50).map((tab) => ({
-            id: String(tab.id),
-            siteName: hostOf(tab.url),
-            title: tab.title,
-            url: tab.url,
-          })),
-    [tabs],
+  const { suggestedFor } = useTabSuggestions(
+    client,
+    tabs,
+    canSaveToRepo && settings.suggestCategories,
   );
-
-  const suggestions = useCategorySuggestions(client, suggestItems, {
-    enabled: canSaveToRepo && settings.suggestCategories,
-    timeoutMs: 6_000,
-  });
 
   /** What a tab is filed under: the daemon's suggestion, else the batch default. */
   const categoriesFor = useCallback(
-    (tab: PopupTab): string[] => {
-      const suggested = suggestions.byId.get(String(tab.id))?.selected;
-      return suggested?.length ? suggested : activeCategories;
-    },
-    [suggestions, activeCategories],
+    (tab: PopupTab): string[] => suggestedFor(tab.id) ?? activeCategories,
+    [suggestedFor, activeCategories],
   );
 
   /**
-   * Host access for every selected origin. The prompt may take focus from the
-   * popup; when that happens the grant still lands, and the next click runs.
+   * The permission prompt may take focus from the popup; when that happens the
+   * grant still lands, and the next click runs.
    */
-  const ensurePermission = useCallback(async (): Promise<boolean> => {
-    const origins = Array.from(
-      new Set(
-        selected
-          .map((tab) => getHostPermissionPattern(tab.url))
-          .filter((origin): origin is string => origin !== null),
-      ),
-    );
-    if (await chrome.permissions.contains({ origins })) {
-      return true;
-    }
-    return chrome.permissions.request({ origins });
-  }, [selected]);
+  const ensurePermission = useCallback(() => ensureHostPermission(selected), [selected]);
 
-  const extractSelected = useCallback(async (): Promise<Extracted> => {
+  const extractSelected = useCallback(async (): Promise<ExtractedTabs<PopupTab>> => {
     const total = selected.length;
     setProgress(`Clipping 0/${total}…`);
-    const results = await extractBatch(
-      selected,
-      (tab) => clipTab(tab.id, clipSettings),
-      (completed) => setProgress(`Clipping ${completed}/${total}…`),
+    return extractTabs(selected, clipSettings, (completed) =>
+      setProgress(`Clipping ${completed}/${total}…`),
     );
-
-    const out: Extracted = { clips: [], errors: [] };
-    for (const [i, result] of results.entries()) {
-      const tab = selected[i];
-      if (result.status === 'fulfilled') {
-        out.clips.push({ clip: result.value, tab });
-      } else {
-        const reason: unknown = result.reason;
-        out.errors.push(
-          `${tab.title}: ${reason instanceof Error ? reason.message : 'could not be clipped'}`,
-        );
-      }
-    }
-    return out;
   }, [selected, clipSettings]);
 
   /** Partial failure still counts: the pages that worked are saved and reported. */
@@ -258,25 +209,8 @@ export const TabsScope = ({
         return;
       }
 
-      const files: ZipFiles = {};
-      const usedNames = new Set<string>();
-      for (const { clip, tab } of clips) {
-        let name = buildFilename(clip, settings.filenamePattern);
-        if (usedNames.has(name)) {
-          name = `${name}-${tab.id}`;
-        }
-        usedNames.add(name);
-        files[`${name}.md`] = strToU8(generateMarkdown(clip));
-      }
-
       setProgress('Compressing…');
-      const zipped = await zipFiles(files);
-      const blob = new Blob([zipped.buffer], { type: 'application/zip' });
-      const url = URL.createObjectURL(blob);
-      const date = new Date().toISOString().slice(0, 10);
-      chrome.downloads.download({ filename: `tabs-${date}.zip`, saveAs: true, url }, () => {
-        URL.revokeObjectURL(url);
-      });
+      downloadClipsZip(clips, settings.filenamePattern);
 
       reportErrors(errors);
       finish('download', settings.autoClosePopup && errors.length === 0);
@@ -297,10 +231,7 @@ export const TabsScope = ({
     finish,
   ]);
 
-  const links = useMemo<BookmarkLink[]>(
-    () => selected.map((tab) => ({ siteName: hostOf(tab.url), title: tab.title, url: tab.url })),
-    [selected],
-  );
+  const links = useMemo(() => tabLinks(selected), [selected]);
 
   /** Only the links: no extraction, no permission, one request whatever the count. */
   const handleBookmark = useCallback(async () => {
