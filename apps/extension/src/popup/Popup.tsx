@@ -1,5 +1,5 @@
 import type { ClipLookupResult, SuggestItem } from '@machdown/contract';
-import type { ClipResponse, ClipResult, ClipSettings } from '#types/clip.ts';
+import type { ClipResult } from '#types/clip.ts';
 import { copyMarkdown, downloadMarkdown, downloadTabLinks } from '#lib/markdown.ts';
 import { describeFailure, toDaemonFailure } from '#common/daemonClient.ts';
 import {
@@ -9,7 +9,7 @@ import {
   getPageBlock,
   toPageReadFailure,
 } from '#common/pageTarget.ts';
-import { hostOf, toClipPayload } from '#common/clipTab.ts';
+import { clipTab, hostOf, toClipPayload } from '#common/clipTab.ts';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '#components/ui/alert.tsx';
 import { ActionFooter } from './ActionFooter.tsx';
@@ -42,6 +42,7 @@ import { clipStats } from '#lib/clipStats.ts';
 import { useActionShortcuts } from './useActionShortcuts.ts';
 import { useActionState } from './useActionState.ts';
 import { useCategorySuggestions } from '#common/useCategorySuggestions.ts';
+import { useCreateCategory } from '#common/useCreateCategory.ts';
 import { useDaemonStatus } from '#common/useDaemonStatus.ts';
 import { useClipSettings } from '#common/useClipSettings.ts';
 import { useSharedSettings } from '#common/useSharedSettings.ts';
@@ -130,24 +131,7 @@ export const Popup = () => {
         return;
       }
 
-      await chrome.scripting.executeScript({
-        files: ['clipper.js'],
-        target: { tabId: tab.id },
-      });
-
-      const response = await chrome.tabs.sendMessage<
-        { settings?: ClipSettings; type: string },
-        ClipResponse
-      >(tab.id, {
-        settings: clipSettings,
-        type: 'clip:extract',
-      });
-
-      if (response.type === 'clip:result') {
-        setState({ clip: response.payload, status: 'done' });
-      } else {
-        setState({ failure: toPageReadFailure(response.error), status: 'error' });
-      }
+      setState({ clip: await clipTab(tab.id, clipSettings), status: 'done' });
     } catch (error) {
       setState({ failure: toPageReadFailure(error), status: 'error' });
     }
@@ -266,27 +250,7 @@ export const Popup = () => {
 
   const activeCategories = categories ?? seededCategories;
 
-  /**
-   * Accepting a suggestion the curated list does not have yet adds it, so the
-   * options page and the picker cannot drift apart.
-   */
-  const handleCreateCategory = useCallback(
-    (name: string) => {
-      if (settings.categories.includes(name)) {
-        return;
-      }
-      const next = [...settings.categories, name];
-      setSettings({ categories: next });
-      runAsync(
-        () => client.config.update({ categories: next }),
-        () => {
-          // The clip still saves with the category in its frontmatter; only the
-          // curated list falls behind, and the next poll reconciles it.
-        },
-      );
-    },
-    [settings.categories, setSettings, client],
-  );
+  const handleCreateCategory = useCreateCategory(client, settings, setSettings);
 
   /** The clip as a file in the browser's downloads folder. Never needs the daemon. */
   const handleDownload = useCallback(() => {

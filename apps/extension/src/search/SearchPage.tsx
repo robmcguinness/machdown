@@ -35,6 +35,7 @@ import { MarkdownPreview } from '#components/MarkdownPreview.tsx';
 import { ScrollArea } from '#components/ui/scroll-area.tsx';
 import { Spinner } from '#components/ui/spinner.tsx';
 import { cn } from '#lib/utils.ts';
+import { plural } from '#lib/plural.ts';
 import { useDaemonStatus } from '#common/useDaemonStatus.ts';
 import { useSharedSettings } from '#common/useSharedSettings.ts';
 import { asHandler, runAsync } from '#lib/async.ts';
@@ -323,8 +324,7 @@ export const SearchPage = () => {
             </EmptyMedia>
             <EmptyTitle>Search your clips</EmptyTitle>
             <EmptyDescription>
-              {status.health.qmd.indexed} document
-              {status.health.qmd.indexed === 1 ? '' : 's'} indexed in “
+              {plural(status.health.qmd.indexed, 'document')} indexed in “
               {status.health.qmd.collection}”.
             </EmptyDescription>
           </EmptyHeader>

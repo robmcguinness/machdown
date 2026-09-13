@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { build } from 'vite';
 import { runInNewContext } from 'node:vm';
 import type { ClipRequest, ClipResponse } from '../src/types/clip.ts';
+import { DEFAULT_SETTINGS } from '../src/common/appTypes.ts';
 
 type Listener = (
   message: ClipRequest,
@@ -41,7 +42,7 @@ await test('reinjecting the built clipper installs only one extraction listener'
     replies += 1;
   };
   for (const listener of listeners) {
-    listener({ type: 'clip:extract' }, {}, reply);
+    listener({ settings: DEFAULT_SETTINGS, type: 'clip:extract' }, {}, reply);
   }
   assert.equal(replies, 1);
   runInNewContext(chunk.code, { chrome: scope.chrome });

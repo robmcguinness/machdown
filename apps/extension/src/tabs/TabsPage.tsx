@@ -8,14 +8,12 @@ import {
   tabLinks,
   useTabSuggestions,
 } from '#common/tabBatch.ts';
-import type { ClipSettings } from '#types/clip.ts';
 import { Popover, PopoverContent, PopoverTrigger } from '#components/ui/popover.tsx';
 import { describeFailure, toDaemonFailure } from '#common/daemonClient.ts';
 import { downloadTabLinks } from '#lib/markdown.ts';
 import { hostOf, toClipPayload } from '#common/clipTab.ts';
 import { getHostPermissionPattern } from '#common/pageTarget.ts';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { AppSettings } from '#common/appTypes.ts';
 import { Badge } from '#components/ui/badge.tsx';
 import { Button } from '#components/ui/button.tsx';
 import { CategoryPicker } from '#components/CategoryPicker.tsx';
@@ -24,6 +22,9 @@ import { DaemonStatus } from '#components/DaemonStatus.tsx';
 import { Sparkles } from 'lucide-react';
 import { Spinner } from '#components/ui/spinner.tsx';
 import { cn } from '#lib/utils.ts';
+import { plural } from '#lib/plural.ts';
+import { useClipSettings } from '#common/useClipSettings.ts';
+import { useCreateCategory } from '#common/useCreateCategory.ts';
 import { useDaemonStatus } from '#common/useDaemonStatus.ts';
 import { useSharedSettings } from '#common/useSharedSettings.ts';
 import { asHandler, runAsync } from '#lib/async.ts';
@@ -68,16 +69,6 @@ type Mode = 'clip' | 'bookmark';
 /** The option-group heading, shared with the search page's filter panel. */
 const GROUP_LABEL = 'font-heading text-xs tracking-wider text-muted-foreground uppercase';
 
-const toClipSettings = (s: AppSettings): ClipSettings => ({
-  bulletListMarker: s.bulletListMarker,
-  codeBlockStyle: s.codeBlockStyle,
-  fence: s.fence,
-  headingStyle: s.headingStyle,
-  hr: s.hr,
-  includeImages: s.includeImages,
-  linkStyle: s.linkStyle,
-});
-
 export const TabsPage = () => {
   const [tabs, setTabs] = useState<TabEntry[]>([]);
   const [exportState, setExportState] = useState<ExportState>({ phase: 'idle' });
@@ -86,6 +77,7 @@ export const TabsPage = () => {
   const [mode, setMode] = useState<Mode>('clip');
   const { setSettings, settings } = useSharedSettings();
   const { canSaveBookmarks, canSaveToRepo, client, status: daemon } = useDaemonStatus();
+  const clipSettings = useClipSettings(settings);
 
   // The fallback for tabs with neither an override nor a suggestion.
   // Memoized because the export callback depends on it.
@@ -127,22 +119,7 @@ export const TabsPage = () => {
     [suggestedFor, activeCategories],
   );
 
-  const handleCreateCategory = useCallback(
-    (name: string) => {
-      if (settings.categories.includes(name)) {
-        return;
-      }
-      const next = [...settings.categories, name];
-      setSettings({ categories: next });
-      runAsync(
-        () => client.config.update({ categories: next }),
-        () => {
-          // Frontmatter still carries it; only the curated list lags behind.
-        },
-      );
-    },
-    [settings.categories, setSettings, client],
-  );
+  const handleCreateCategory = useCreateCategory(client, settings, setSettings);
 
   const applyToAll = useCallback(
     (only: 'all' | 'unset') => {
@@ -211,7 +188,7 @@ export const TabsPage = () => {
     setExportState({ current: 0, errors: [], phase: 'clipping', total: selected.length });
 
     // Extracted in selection order so filenames and the single save stay deterministic.
-    const { clips, errors } = await extractTabs(selected, toClipSettings(settings), (completed) => {
+    const { clips, errors } = await extractTabs(selected, clipSettings, (completed) => {
       setExportState({ current: completed, errors: [], phase: 'clipping', total: selected.length });
     });
 
@@ -231,7 +208,7 @@ export const TabsPage = () => {
         const saved = await client.clips.save({
           clips: payloads,
           commit: {
-            message: `clip: ${payloads.length} page${payloads.length === 1 ? '' : 's'}`,
+            message: `clip: ${plural(payloads.length, 'page')}`,
           },
         });
         setSettings({ lastUsedCategories: activeCategories });
@@ -259,7 +236,16 @@ export const TabsPage = () => {
     }
 
     setExportState({ errors, phase: 'done' });
-  }, [tabs, settings, activeDestination, activeCategories, categoriesFor, client, setSettings]);
+  }, [
+    tabs,
+    settings,
+    clipSettings,
+    activeDestination,
+    activeCategories,
+    categoriesFor,
+    client,
+    setSettings,
+  ]);
 
   /**
    * Appends every selected tab to `bookmarks.md` in one go.
@@ -465,7 +451,7 @@ export const TabsPage = () => {
                     ? `Saving ${exportState.total}...`
                     : mode === 'bookmark'
                       ? activeDestination === 'repo'
-                        ? `Bookmark ${selectedCount} tab${selectedCount === 1 ? '' : 's'}`
+                        ? `Bookmark ${plural(selectedCount, 'tab')}`
                         : 'Export Markdown'
                       : activeDestination === 'repo'
                         ? 'Save to repository'
@@ -604,7 +590,7 @@ export const TabsPage = () => {
                   <p className='m-0 mb-1.5 font-heading text-xs tracking-wider text-destructive uppercase'>
                     {mode === 'bookmark'
                       ? 'The bookmarks could not be saved'
-                      : `${exportState.errors.length} tab${exportState.errors.length > 1 ? 's' : ''} failed to clip`}
+                      : `${plural(exportState.errors.length, 'tab')} failed to clip`}
                   </p>
                   <ul className='m-0 flex list-none flex-col gap-1 p-0'>
                     {exportState.errors.map((err) => (

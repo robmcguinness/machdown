@@ -34,6 +34,7 @@ import { Switch } from '#components/ui/switch.tsx';
 import { TriangleAlert } from 'lucide-react';
 import { X } from 'lucide-react';
 import { cn } from '#lib/utils.ts';
+import { plural } from '#lib/plural.ts';
 import { toast } from 'sonner';
 
 import type { UseDaemonStatus } from '#common/useDaemonStatus.ts';
@@ -129,27 +130,19 @@ export const RepositorySection = ({ daemon, settings, updateSettings }: Reposito
       // follow-up config update is needed or can race the status poll.
       if (result.configCreated) {
         parts.push(
-          `Saved your ${settings.categories.length} ${
-            settings.categories.length === 1 ? 'category' : 'categories'
-          } into the new repository.`,
+          `Saved your ${plural(settings.categories.length, 'category', 'categories')} into the new repository.`,
         );
       }
       if (result.migrated > 0) {
-        parts.push(`Adopted ${result.migrated} existing clip${result.migrated === 1 ? '' : 's'}.`);
+        parts.push(`Adopted ${plural(result.migrated, 'existing clip')}.`);
       }
       if (result.layout) {
-        parts.push(
-          `Moved ${result.layout.flattened} file${
-            result.layout.flattened === 1 ? '' : 's'
-          } into one folder.`,
-        );
+        parts.push(`Moved ${plural(result.layout.flattened, 'file')} into one folder.`);
         // Flattening can force a rename when two categories held the same
         // title; saying so beats letting a file quietly become "foo-2.md".
         if (result.layout.renamed.length > 0) {
           parts.push(
-            `${result.layout.renamed.length} file${
-              result.layout.renamed.length === 1 ? ' was' : 's were'
-            } renamed to avoid a name clash.`,
+            `${plural(result.layout.renamed.length, 'file was', 'files were')} renamed to avoid a name clash.`,
           );
         }
       }
@@ -159,7 +152,7 @@ export const RepositorySection = ({ daemon, settings, updateSettings }: Reposito
   const handleEmbed = () =>
     run('embed', async () => {
       const result = await client.index.update({ embed: true });
-      return `Embedded ${result.embedded} document${result.embedded === 1 ? '' : 's'}.`;
+      return `Embedded ${plural(result.embedded, 'document')}.`;
     });
 
   const setSuggestCategories = (value: boolean) =>

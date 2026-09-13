@@ -18,6 +18,7 @@ import { Checkbox } from '#components/ui/checkbox.tsx';
 import type { ClipPayload } from '@machdown/contract';
 import type { DaemonClient } from '#common/daemonClient.ts';
 import { asHandler } from '#lib/async.ts';
+import { plural } from '#lib/plural.ts';
 import { toast } from 'sonner';
 import { useActionShortcuts } from './useActionShortcuts.ts';
 import { useActionState } from './useActionState.ts';
@@ -42,8 +43,6 @@ type TabsScopeProps = {
   settings: AppSettings;
   tabs: readonly PopupTab[];
 };
-
-const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ? '' : 's'}`;
 
 /**
  * The open tabs as a batch, with the same footer as the single page.

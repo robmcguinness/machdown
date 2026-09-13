@@ -1,3 +1,5 @@
+import type { AppSettings } from '#common/appTypes.ts';
+
 export type ClipResult = {
   clippedAt: string;
   excerpt: string;
@@ -8,17 +10,19 @@ export type ClipResult = {
   url: string;
 };
 
-export type ClipSettings = {
-  bulletListMarker: '-' | '*' | '+';
-  codeBlockStyle: 'fenced' | 'indented';
-  fence: '```' | '~~~';
-  headingStyle: 'atx' | 'setext';
-  hr: '---' | '***' | '___';
-  includeImages: boolean;
-  linkStyle: 'inline' | 'reference';
-};
+/** The settings the clipper needs; the rest of `AppSettings` must not trigger a re-extraction. */
+export type ClipSettings = Pick<
+  AppSettings,
+  | 'bulletListMarker'
+  | 'codeBlockStyle'
+  | 'fence'
+  | 'headingStyle'
+  | 'hr'
+  | 'includeImages'
+  | 'linkStyle'
+>;
 
-export type ClipRequest = { settings?: ClipSettings; type: 'clip:extract' };
+export type ClipRequest = { settings: ClipSettings; type: 'clip:extract' };
 export type ClipResponse =
   | { payload: ClipResult; type: 'clip:result' }
   | { error: string; type: 'clip:error' };

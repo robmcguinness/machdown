@@ -1,4 +1,4 @@
-import type { ClipResponse, ClipResult, ClipSettings } from '#types/clip.ts';
+import type { ClipRequest, ClipResponse, ClipResult, ClipSettings } from '#types/clip.ts';
 import type { AppSettings } from '#common/appTypes.ts';
 import type { ClipPayload } from '@machdown/contract';
 
@@ -35,10 +35,7 @@ export const clipTab = async (tabId: number, clipSettings: ClipSettings): Promis
     target: { tabId },
   });
 
-  const response = await chrome.tabs.sendMessage<
-    { settings?: ClipSettings; type: string },
-    ClipResponse
-  >(tabId, {
+  const response = await chrome.tabs.sendMessage<ClipRequest, ClipResponse>(tabId, {
     settings: clipSettings,
     type: 'clip:extract',
   });

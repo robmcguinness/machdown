@@ -5,16 +5,6 @@ import { sanitize } from './sanitize.ts';
 
 const SKIP_TAGS = new Set(['NAV', 'HEADER', 'FOOTER', 'ASIDE', 'SCRIPT', 'STYLE', 'NOSCRIPT']);
 
-const DEFAULT_CLIP_SETTINGS: ClipSettings = {
-  bulletListMarker: '-',
-  codeBlockStyle: 'fenced',
-  fence: '```',
-  headingStyle: 'atx',
-  hr: '---',
-  includeImages: true,
-  linkStyle: 'inline',
-};
-
 const createTurndown = (settings: ClipSettings): TurndownService => {
   const td = new TurndownService({
     bulletListMarker: settings.bulletListMarker,
@@ -139,8 +129,7 @@ if (!scope.machdownClipperInstalled) {
       }
 
       try {
-        const settings = { ...DEFAULT_CLIP_SETTINGS, ...message.settings };
-        const result = extractClip(settings);
+        const result = extractClip(message.settings);
         sendResponse({ payload: result, type: 'clip:result' });
       } catch (error) {
         sendResponse({
