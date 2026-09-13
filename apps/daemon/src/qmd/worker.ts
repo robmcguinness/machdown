@@ -13,6 +13,7 @@ import { type QMDStore, createStore, extractSnippet } from '@tobilu/qmd';
 import { dirname } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { parentPort, workerData } from 'node:worker_threads';
+import { detach } from '#util/detach.ts';
 
 /**
  * Owns the embedded qmd store.
@@ -132,7 +133,9 @@ const withModelPhase = async <T>(op: ModelOp, run: () => Promise<T>): Promise<T>
 let maintenance: Promise<unknown> = Promise.resolve();
 
 const serialize = <T>(run: () => Promise<T>): Promise<T> => {
+  // oxlint-disable-next-line promise/prefer-await-to-then -- promise-chain tail, same idiom as util/mutex.ts
   const next = maintenance.then(run, run);
+  // oxlint-disable-next-line promise/prefer-await-to-then -- see above
   maintenance = next.catch(() => null);
   return next;
 };
@@ -155,19 +158,31 @@ const indexedCount = async (store: QMDStore): Promise<number> => {
 };
 
 const runUpdate = (): Promise<UpdatePayload> => {
-  pendingUpdate ??= serialize(async () => {
-    const store = await getStore();
-    await store.update({ collections: [init.collection] });
-    return { indexed: await indexedCount(store) };
-  }).finally(() => {
-    pendingUpdate = null;
-  });
+  const update = async (): Promise<UpdatePayload> => {
+    try {
+      return await serialize(async () => {
+        const store = await getStore();
+        await store.update({ collections: [init.collection] });
+        return { indexed: await indexedCount(store) };
+      });
+    } finally {
+      // Dedupe window closes with the update, success or not.
+      pendingUpdate = null;
+    }
+  };
+  pendingUpdate ??= update();
 
   return pendingUpdate;
 };
 
 /** Thrown only between native batches, after qmd has persisted their vectors. */
-class EmbedCancelled extends Error {}
+class EmbedCancelledError extends Error {
+  constructor(message: string) {
+    super(message);
+    // `instanceof` survives, but logs print `name`; keep them in agreement.
+    this.name = 'EmbedCancelledError';
+  }
+}
 
 const runEmbed = (): Promise<EmbedPayload> =>
   serialize(async () => {
@@ -181,14 +196,14 @@ const runEmbed = (): Promise<EmbedPayload> =>
           // LLM session; unfinished documents remain pending for the next warm.
           onProgress: () => {
             if (closing) {
-              throw new EmbedCancelled('the search index is closing');
+              throw new EmbedCancelledError('the search index is closing');
             }
           },
         }),
       );
       return { cancelled: false, docsEmbedded: result.docsProcessed };
     } catch (error) {
-      if (!(error instanceof EmbedCancelled)) {
+      if (!(error instanceof EmbedCancelledError)) {
         throw error;
       }
       // Progress reports chunks, not documents. Count only documents whose
@@ -308,20 +323,25 @@ const handle = async (
 };
 
 port.on('message', (request: QmdRequest) => {
-  void (async () => {
-    try {
-      post({ id: request.id, ok: true, value: await handle(request) });
-    } catch (error) {
-      // A failed query must never take the worker down with it.
-      post({
-        id: request.id,
-        message: error instanceof Error ? error.message : String(error),
-        ok: false,
-      });
-    }
+  detach(
+    async () => {
+      try {
+        post({ id: request.id, ok: true, value: await handle(request) });
+      } catch (error) {
+        // A failed query must never take the worker down with it.
+        post({
+          id: request.id,
+          message: error instanceof Error ? error.message : String(error),
+          ok: false,
+        });
+      }
 
-    if (request.kind === 'close') {
-      port.close();
-    }
-  })();
+      if (request.kind === 'close') {
+        port.close();
+      }
+    },
+    () => {
+      // Only `post` itself can throw here, when the port is already gone.
+    },
+  );
 });

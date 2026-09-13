@@ -16,12 +16,14 @@ const HEALTH_TTL_SECONDS = 2;
 const cache = createCache({ storage: { type: 'memory' }, ttl: HEALTH_TTL_SECONDS })
   .define('repoStatus', (repoPath: string) => status(repoPath))
   .define('repoConfig', (repoPath: string) => readConfig(repoPath))
-  .define('repoDuplicates', (repoPath: string) =>
-    loadClipIndex(repoPath).then(
-      (index) => index.duplicates,
-      () => [],
-    ),
-  );
+  .define('repoDuplicates', async (repoPath: string) => {
+    try {
+      return (await loadClipIndex(repoPath)).duplicates;
+    } catch {
+      // An unreadable index is reported elsewhere; health just has no duplicates to show.
+      return [];
+    }
+  });
 
 /**
  * Drops the cached probes so the next poll is truthful.
@@ -29,8 +31,8 @@ const cache = createCache({ storage: { type: 'memory' }, ttl: HEALTH_TTL_SECONDS
  * Called when the configured repository changes: without it, `repo.init` would
  * be invisible to the extension until the TTL ran out.
  */
-export const clearHealthCache = (): void => {
-  void cache.clear();
+export const clearHealthCache = async (): Promise<void> => {
+  await cache.clear();
 };
 
 /**

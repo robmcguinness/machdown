@@ -16,6 +16,7 @@ import { getLog, runDetached } from '#server/request-store.ts';
 import { recordQmdCall } from './stats.ts';
 import { qmdDisabled, workerEnv } from '#env';
 import { isErrnoException } from '#util/errors.ts';
+import { detach } from '#util/detach.ts';
 import type { SearchHit, SearchMode } from '@machdown/contract';
 import type { FastifyBaseLogger } from 'fastify';
 import type { Logger } from 'pino';
@@ -230,7 +231,9 @@ const ensureWorker = (target: QmdTarget): Live => {
     }
     // A different repo or collection is a different index: the old worker
     // holds the wrong collection config and has to go.
-    void closeQmd();
+    detach(closeQmd, (cause) => {
+      getLog().warn({ err: cause }, 'closing the stale search worker failed');
+    });
   }
 
   if (Date.now() - lastFailureAt < FAILURE_COOLDOWN_MS) {
@@ -387,17 +390,21 @@ export const warmIndex = (target: QmdTarget, options: { embed?: boolean } = {}):
   // wide event that has already been emitted — inflating a finished request's
   // `qmd` totals — and would report failures through a stale request logger.
   runDetached(() => {
-    void request(target, { kind: 'update' }, INDEX_TIMEOUT_MS)
-      .then(() =>
+    detach(
+      async () => {
+        await request(target, { kind: 'update' }, INDEX_TIMEOUT_MS);
         // Embedding may load a model and process an existing backlog. Keep
         // registration update-only; writes opt in so new clips reach vsearch.
-        options.embed ? embedIndex(target) : undefined,
-      )
-      .catch((cause: unknown) => {
+        if (options.embed) {
+          await embedIndex(target);
+        }
+      },
+      (cause) => {
         // Search staleness is recoverable, but a silent failure here is
         // invisible — log it instead of swallowing it outright.
         getLog().warn({ err: cause }, 'background re-index failed');
-      });
+      },
+    );
   });
 };
 

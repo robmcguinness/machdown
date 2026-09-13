@@ -8,7 +8,7 @@ import type {
   SuggestionReason,
 } from '@machdown/contract';
 import { UNCATEGORIZED } from '@machdown/contract/constants';
-import { type ClipIndex, type ScannedClip } from '#repo/store.ts';
+import type { ClipIndex, ScannedClip } from '#repo/store.ts';
 import { getCachedSuggestion, setCachedSuggestion } from './cache.ts';
 import { hostOf, toUrlKey } from '#repo/urlKey.ts';
 import { QmdUnavailableError, type RawHit, type SearchOptions, searchRaw } from '#qmd/client.ts';

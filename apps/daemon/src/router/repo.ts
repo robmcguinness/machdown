@@ -17,6 +17,8 @@ import { warmIndex } from '#qmd/client.ts';
 import path from 'node:path';
 import { regenerateReadme } from '#repo/generate.ts';
 import { resolveRepoPath } from '#config.ts';
+import { detach } from '#util/detach.ts';
+import { getLog } from '#server/request-store.ts';
 
 /** Only daemon-managed noise; the clips themselves are the point of the repo. */
 const GITIGNORE = `.DS_Store
@@ -84,7 +86,10 @@ export const repoInit = os.repo.init.use(authed).handler(async ({ context, error
       // searchable, and a first index of a large archive takes a while.
       const config = await readConfig(repoPath);
       warmIndex({ collection: config.qmdCollection, repoPath });
-      void warmClipSnapshot(repoPath);
+      detach(
+        () => warmClipSnapshot(repoPath),
+        (cause) => getLog().warn({ err: cause }, 'clip snapshot warm-up failed'),
+      );
 
       const commit = await commitIfChanged(repoPath, commitMessage(migrated, layout), [
         'README.md',
@@ -101,7 +106,7 @@ export const repoInit = os.repo.init.use(authed).handler(async ({ context, error
       await context.state.persist();
       // The health cache may still hold answers probed against the previous
       // repository — or against none at all — so drop them now.
-      clearHealthCache();
+      await clearHealthCache();
 
       return {
         commit,

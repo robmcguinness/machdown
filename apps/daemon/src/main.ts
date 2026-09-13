@@ -17,6 +17,7 @@ import { parseArgs } from 'node:util';
 import { readFile } from 'node:fs/promises';
 import { isAddressInfo, isErrnoException } from './util/errors.ts';
 import { z } from 'zod';
+import { detach } from './util/detach.ts';
 
 const PackageVersionSchema = z.looseObject({ version: z.string().optional() });
 
@@ -88,8 +89,8 @@ const main = async (): Promise<void> => {
     await closeControl?.();
   });
 
-  for (const issue of issues) {
-    app.log.warn({ field: issue.field, reason: issue.reason }, 'ignored an invalid config value');
+  if (issues.length > 0) {
+    app.log.warn({ count: issues.length, issues }, 'ignored invalid config values');
   }
 
   // Non-fatal by design, like every other config problem: a read-only home
@@ -106,7 +107,10 @@ const main = async (): Promise<void> => {
     await ensureMigrated(config.repoPath, state.withRepo).catch((cause: unknown) => {
       app.log.error({ err: cause }, 'could not upgrade the repository layout');
     });
-    void warmClipSnapshot(config.repoPath);
+    detach(
+      () => warmClipSnapshot(config.repoPath!),
+      (cause) => app.log.warn({ err: cause }, 'clip snapshot warm-up failed'),
+    );
   }
 
   try {

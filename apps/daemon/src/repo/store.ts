@@ -435,12 +435,16 @@ export const warmClipSnapshot = (repoPath: string): Promise<void> =>
 const reportedDuplicates = new Set<string>();
 
 const reportDuplicates = (repoPath: string, index: ClipIndex): void => {
+  const fresh: ClipIndex['duplicates'] = [];
   for (const duplicate of index.duplicates) {
     const key = JSON.stringify([repoPath, duplicate.urlKey, duplicate.kept, duplicate.dropped]);
     if (!reportedDuplicates.has(key)) {
       reportedDuplicates.add(key);
-      getLog().warn({ repoPath, ...duplicate }, 'duplicate clip URL');
+      fresh.push(duplicate);
     }
+  }
+  if (fresh.length > 0) {
+    getLog().warn({ count: fresh.length, duplicates: fresh, repoPath }, 'duplicate clip URLs');
   }
 };
 

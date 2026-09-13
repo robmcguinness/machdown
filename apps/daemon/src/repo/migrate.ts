@@ -329,6 +329,7 @@ const flattenLayout = async (
   if (legacy.length > 0) {
     invalidateClipSnapshot(repoPath);
     const index = await loadClipIndex(repoPath, { fresh: true });
+    const failed: { reason: string; url: string }[] = [];
 
     for (const bookmark of legacy) {
       if (!bookmark.url) {
@@ -352,8 +353,15 @@ const flattenLayout = async (
         }
         report.bookmarksConverted += 1;
       } catch (error) {
-        getLog().warn({ err: error, url: bookmark.url }, 'could not convert a legacy bookmark');
+        failed.push({
+          reason: error instanceof Error ? error.message : String(error),
+          url: bookmark.url,
+        });
       }
+    }
+    if (failed.length > 0) {
+      // One event per migration, not one line per row.
+      getLog().warn({ count: failed.length, failed }, 'could not convert some legacy bookmarks');
     }
   }
 
@@ -418,11 +426,15 @@ export const ensureMigrated = (
     return pending;
   }
 
-  const run = withRepo(() => migrateRepo(repoPath)).catch((cause: unknown) => {
-    // A failed migration must not poison the cache: the next save retries.
-    inFlight.delete(repoPath);
-    throw cause;
-  });
+  const run = (async () => {
+    try {
+      return await withRepo(() => migrateRepo(repoPath));
+    } catch (cause) {
+      // A failed migration must not poison the cache: the next save retries.
+      inFlight.delete(repoPath);
+      throw cause;
+    }
+  })();
 
   inFlight.set(repoPath, run);
   return run;

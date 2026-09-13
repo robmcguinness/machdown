@@ -72,7 +72,7 @@ export const bookmarksSetLocation = os.bookmarks.setLocation
     await context.state.persist();
     // Health reports the folder, and the extension gates its bookmark button on
     // it, so a stale cached answer would leave the button disabled for the TTL.
-    clearHealthCache();
+    await clearHealthCache();
 
     return { path: target };
   });

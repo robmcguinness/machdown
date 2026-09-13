@@ -1,4 +1,4 @@
-import { after, before, beforeEach, describe, it } from 'node:test';
+import { after, before, beforeEach, describe, test } from 'node:test';
 import { commitAll, makeRepo, writeClip } from '#test-helpers.ts';
 import type { DaemonConfig } from '#config.ts';
 import type { FastifyInstance } from 'fastify';
@@ -56,7 +56,7 @@ describe('health probe caching', () => {
     await rm(scratch, { force: true });
     await rm(path.join(repoPath, 'clips', 'duplicates'), { force: true, recursive: true });
     invalidateClipSnapshot(repoPath);
-    clearHealthCache();
+    await clearHealthCache();
   });
 
   after(async () => {
@@ -64,11 +64,11 @@ describe('health probe caching', () => {
     await rm(repoPath, { force: true, recursive: true });
   });
 
-  it('reports no duplicate URLs for a clean repo', async () => {
+  test('reports no duplicate URLs for a clean repo', async () => {
     assert.deepEqual((await poll(app)).repo?.duplicateUrls, []);
   });
 
-  it('reports two duplicate conflicts, caches them, and refreshes after clearing', async () => {
+  test('reports two duplicate conflicts, caches them, and refreshes after clearing', async () => {
     const expected = [];
     // Each pair shares a URL; each losing file produces one warning.
     for (const name of ['a', 'b']) {
@@ -83,11 +83,11 @@ describe('health probe caching', () => {
     await rm(path.join(repoPath, 'clips', 'duplicates'), { recursive: true });
     invalidateClipSnapshot(repoPath);
     assert.deepEqual((await poll(app)).repo?.duplicateUrls, expected);
-    clearHealthCache();
+    await clearHealthCache();
     assert.deepEqual((await poll(app)).repo?.duplicateUrls, []);
   });
 
-  it('answers a repeated poll from the cache instead of re-probing git', async () => {
+  test('answers a repeated poll from the cache instead of re-probing git', async () => {
     const first = await poll(app);
     assert.equal(first.repo?.dirty, false);
 
@@ -98,17 +98,17 @@ describe('health probe caching', () => {
     assert.equal(second.repo?.dirty, false, 'the second poll re-probed git');
   });
 
-  it('sees the repository again once the cache is cleared', async () => {
+  test('sees the repository again once the cache is cleared', async () => {
     await poll(app);
     await writeFile(scratch, 'scratch\n', 'utf8');
 
-    clearHealthCache();
+    await clearHealthCache();
 
     const cleared = await poll(app);
     assert.equal(cleared.repo?.dirty, true);
   });
 
-  it('serves concurrent polls one shared answer', async () => {
+  test('serves concurrent polls one shared answer', async () => {
     const [first, second] = await Promise.all([poll(app), poll(app)]);
 
     assert.deepEqual(first.repo, second.repo);

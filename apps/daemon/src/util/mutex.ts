@@ -11,8 +11,10 @@ export const createMutex = () => {
   let tail: Promise<unknown> = Promise.resolve();
 
   return <T>(task: () => Promise<T>): Promise<T> => {
+    // oxlint-disable-next-line promise/prefer-await-to-then -- promise-chain tail: the queue is the chain itself
     const result = tail.then(task, task);
     // Keep the chain alive even when a task rejects.
+    // oxlint-disable-next-line promise/prefer-await-to-then -- see above
     tail = result.catch(() => {});
     return result;
   };

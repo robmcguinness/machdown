@@ -363,22 +363,34 @@ describe('snapshot index', () => {
 });
 
 describe('warmClipSnapshot', () => {
-  test('warns once per duplicate across warm-ups and index lookups', async (t) => {
+  test('warns in one event per duplicate set across warm-ups and index lookups', async (t) => {
     const repo = await makeRepo();
     const warn = t.mock.method(getLog(), 'warn', () => {});
     try {
-      const url = 'https://example.com/duplicate-warning';
-      await writeClip(repo, 'clips/kept.md', { updated: '2026-02-01', url });
-      await writeClip(repo, 'clips/dropped.md', { updated: '2026-01-01', url });
+      for (const name of ['a', 'b']) {
+        const url = `https://example.com/duplicate-warning-${name}`;
+        await writeClip(repo, `clips/${name}-kept.md`, { updated: '2026-02-01', url });
+        await writeClip(repo, `clips/${name}-dropped.md`, { updated: '2026-01-01', url });
+      }
       await warmClipSnapshot(repo);
       await loadClipIndex(repo);
       await warmClipSnapshot(repo);
       assert.equal(warn.mock.callCount(), 1);
       assert.deepEqual(warn.mock.calls[0].arguments[0], {
-        dropped: 'clips/dropped.md',
-        kept: 'clips/kept.md',
+        count: 2,
+        duplicates: [
+          {
+            dropped: 'clips/a-dropped.md',
+            kept: 'clips/a-kept.md',
+            urlKey: 'example.com/duplicate-warning-a',
+          },
+          {
+            dropped: 'clips/b-dropped.md',
+            kept: 'clips/b-kept.md',
+            urlKey: 'example.com/duplicate-warning-b',
+          },
+        ],
         repoPath: repo,
-        urlKey: 'example.com/duplicate-warning',
       });
     } finally {
       invalidateClipSnapshot(repo);
