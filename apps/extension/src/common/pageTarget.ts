@@ -98,7 +98,6 @@ export type PageReadFailure =
   | { host?: string; kind: 'no-permission' }
   | { kind: 'no-content' }
   | { kind: 'no-tab' }
-  | { kind: 'no-api' }
   | { kind: 'unknown'; message: string };
 
 /**
@@ -201,11 +200,6 @@ export const describePageReadFailure = (failure: PageReadFailure) => {
       return {
         body: 'Machdown found no active tab.',
         title: 'No page to clip',
-      };
-    case 'no-api':
-      return {
-        body: 'The browser extension APIs are not available.',
-        title: 'Machdown cannot start',
       };
     default:
       return {

@@ -72,9 +72,6 @@ const openSettings = async () => {
 
 /** Every tab of this window the clipper could read, in tab-strip order. */
 const listClippableTabs = async (): Promise<PopupTab[]> => {
-  if (typeof chrome === 'undefined' || !chrome.tabs?.query) {
-    return [];
-  }
   const tabs = await chrome.tabs.query({ currentWindow: true });
   return tabs
     .filter(
@@ -107,11 +104,6 @@ export const Popup = () => {
   const extractClip = useCallback(async () => {
     setState({ status: 'loading' });
     reset();
-
-    if (typeof chrome === 'undefined' || !chrome.tabs?.query) {
-      setState({ failure: { kind: 'no-api' }, status: 'error' });
-      return;
-    }
 
     try {
       const [tab] = await chrome.tabs.query({

@@ -138,25 +138,6 @@ Run it after adding or refactoring code and before submitting changes.
 
 ### 2. Choose a development loop
 
-For browser-based UI development:
-
-```bash
-pnpm dev
-```
-
-Open the Vite URL printed in the terminal with one of these paths:
-
-```text
-/src/popup/index.html
-/src/options/index.html
-/src/tabs/index.html
-/src/search/index.html
-```
-
-Vite serves the React pages, but a regular browser tab does not provide the
-extension APIs needed for clipping, tab access, and extension storage. Verify
-those workflows in the unpacked extension.
-
 For UI changes in the unpacked extension:
 
 ```bash
@@ -406,7 +387,6 @@ Run these from the repository root:
 | Command                                         | Purpose                                                  |
 | ----------------------------------------------- | -------------------------------------------------------- |
 | `pnpm build`                                    | Build the contract and extension; type-check the daemon. |
-| `pnpm dev`                                      | Serve extension UI pages through Vite.                   |
 | `pnpm --filter @machdown/extension build:watch` | Full initial extension build, followed by UI-only watch. |
 | `pnpm daemon`                                   | Start the local daemon.                                  |
 | `pnpm daemon:pair`                              | Issue a fresh pairing code on macOS/Linux.               |
