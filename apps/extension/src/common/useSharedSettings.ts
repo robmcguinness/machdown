@@ -1,7 +1,7 @@
-import { type AppSettings, type AppState, DEFAULT_STATE } from './appTypes';
+import { type AppSettings, type AppState, DEFAULT_STATE } from './appTypes.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getAppBridge } from './appBridge';
-import { watchAppSettings } from './appSettings';
+import { getAppBridge } from './appBridge.ts';
+import { watchAppSettings } from './appSettings.ts';
 
 type SharedSettingsState = {
   setSettings: (patch: Partial<AppSettings>) => void;

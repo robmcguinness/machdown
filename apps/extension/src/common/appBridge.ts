@@ -1,4 +1,4 @@
-import { type AppMessage, type AppState, DEFAULT_STATE, applyDefaults } from './appTypes';
+import { type AppMessage, type AppState, DEFAULT_STATE, applyDefaults } from './appTypes.ts';
 
 type Listener = (state: AppState) => void;
 

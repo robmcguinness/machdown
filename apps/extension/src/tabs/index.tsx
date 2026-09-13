@@ -3,7 +3,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { ErrorScreen } from '#common/errorScreen.tsx';
 import ReactDOM from 'react-dom/client';
 import { StrictMode } from 'react';
-import { TabsPage } from './TabsPage';
+import { TabsPage } from './TabsPage.tsx';
 import { Toaster } from '#components/Toaster.tsx';
 
 const root = ReactDOM.createRoot(document.querySelector('#tabsRoot')!);

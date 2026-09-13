@@ -1,5 +1,6 @@
 /// <reference types='chrome'/>
 import { type AppMessage, type AppState, DEFAULT_STATE, applyDefaults } from '#common/appTypes.ts';
+import { runAsync } from '#lib/async.ts';
 
 type CSClient = { port: chrome.runtime.Port; tabId: number };
 type AppClient = { port: chrome.runtime.Port };
@@ -19,17 +20,19 @@ const safePostMessage = (port: chrome.runtime.Port, message: AppMessage) => {
 let appState: AppState = DEFAULT_STATE;
 let stateLoadPromise: Promise<void> | null = null;
 
-const ensureStateLoaded = () => {
-  stateLoadPromise ??= chrome.storage.local
-    .get('appState')
-    .then(({ appState: stored }) => {
-      if (stored) {
-        appState = applyDefaults(stored);
-      }
-    })
-    .catch(() => {
-      appState = DEFAULT_STATE;
-    });
+const loadState = async (): Promise<void> => {
+  try {
+    const { appState: stored } = await chrome.storage.local.get('appState');
+    if (stored) {
+      appState = applyDefaults(stored);
+    }
+  } catch {
+    appState = DEFAULT_STATE;
+  }
+};
+
+const ensureStateLoaded = (): Promise<void> => {
+  stateLoadPromise ??= loadState();
   return stateLoadPromise;
 };
 
@@ -42,7 +45,7 @@ const broadcastToApps = (message: AppMessage) => {
 };
 
 const persistState = () => {
-  void chrome.storage.local.set({ appState });
+  runAsync(() => chrome.storage.local.set({ appState }));
 };
 
 chrome.runtime.onConnect.addListener((port) => {
@@ -54,7 +57,8 @@ chrome.runtime.onConnect.addListener((port) => {
     appClients.add(app);
     //console.log('App connected, total app clients:', appClients.size);
 
-    void ensureStateLoaded().then(() => {
+    runAsync(async () => {
+      await ensureStateLoaded();
       safePostMessage(port, { payload: appState, type: 'state:response' });
     });
 

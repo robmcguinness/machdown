@@ -21,6 +21,7 @@ export const runAsync = <T>(
   run: () => Promise<T>,
   onError: (cause: unknown) => void = reportUnexpected,
 ): void => {
+  // oxlint-disable-next-line promise/prefer-await-to-then -- this helper is the single fire-and-forget tail; callers use it instead of catch
   run().catch(onError);
 };
 
@@ -34,5 +35,6 @@ export const asHandler =
     onError: (cause: unknown) => void = reportUnexpected,
   ) =>
   (...args: Args): void => {
+    // oxlint-disable-next-line promise/prefer-await-to-then -- this adapter is the single fire-and-forget tail for event handlers
     run(...args).catch(onError);
   };

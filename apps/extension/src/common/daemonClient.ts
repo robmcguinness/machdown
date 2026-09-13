@@ -2,7 +2,7 @@ import { type MachdownContract, type RouterContractClient, contract } from '@mac
 import { ORPCError, createORPCClient } from '@orpc/client';
 import { DEFAULT_DAEMON_BASE_URL } from '@machdown/contract/constants';
 import { OpenAPILink } from '@orpc/openapi/fetch';
-import { loadPairing } from './daemonStorage';
+import { loadPairing } from './daemonStorage.ts';
 
 export type DaemonClient = RouterContractClient<MachdownContract>;
 

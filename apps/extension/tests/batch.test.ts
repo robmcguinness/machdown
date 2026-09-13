@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import assert from 'node:assert/strict';
+import { setImmediate as yieldToQueue } from 'node:timers/promises';
 import { test } from 'node:test';
 import { extractBatch, TAB_CONCURRENCY } from '../src/lib/batch.ts';
 
@@ -30,14 +31,10 @@ await test('batch bounds concurrency, counts failures and preserves selection or
   assert.equal(releases.size, TAB_CONCURRENCY);
   releases.get(2)?.();
   // Allow the continuation to start the next queued tab.
-  await new Promise<void>((resolve) => {
-    setImmediate(resolve);
-  });
+  await yieldToQueue();
   assert.ok(releases.has(3));
   releases.get(1)?.();
-  await new Promise<void>((resolve) => {
-    setImmediate(resolve);
-  });
+  await yieldToQueue();
   assert.ok(releases.has(4));
   releases.get(4)?.();
   releases.get(3)?.();

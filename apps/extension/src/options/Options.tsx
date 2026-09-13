@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '#components/ui/tabs.ts
 import { Button } from '#components/ui/button.tsx';
 import { DaemonStatus } from '#components/DaemonStatus.tsx';
 import { BookmarksSection } from '#components/BookmarksSection.tsx';
-import { RepositorySection } from './RepositorySection';
+import { RepositorySection } from './RepositorySection.tsx';
 import { Separator } from '#components/ui/separator.tsx';
 import { Slider } from '#components/ui/slider.tsx';
 import { Switch } from '#components/ui/switch.tsx';

@@ -1,4 +1,4 @@
-import { type AppSettings, type SaveTarget } from '#common/appTypes.ts';
+import type { AppSettings, SaveTarget } from '#common/appTypes.ts';
 import { Alert, AlertDescription, AlertTitle } from '#components/ui/alert.tsx';
 import { Card, CardContent } from '#components/ui/card.tsx';
 import {

@@ -2,7 +2,7 @@ import './index.css';
 import { ErrorBoundary } from 'react-error-boundary';
 import { ErrorScreen } from '#common/errorScreen.tsx';
 import ReactDOM from 'react-dom/client';
-import { SearchPage } from './SearchPage';
+import { SearchPage } from './SearchPage.tsx';
 import { StrictMode } from 'react';
 import { Toaster } from '#components/Toaster.tsx';
 

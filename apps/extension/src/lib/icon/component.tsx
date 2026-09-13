@@ -1,5 +1,11 @@
-import { type CSSSize, type IconProps, type TailwindSize, cssColors, tailwindSizes } from './types';
-import { IconRegistry } from './registry';
+import {
+  type CSSSize,
+  type IconProps,
+  type TailwindSize,
+  cssColors,
+  tailwindSizes,
+} from './types.ts';
+import { IconRegistry } from './registry.ts';
 import { memo } from 'react';
 
 /** A type guard, not a cast: `size` is wider than `TailwindSize` alone. */

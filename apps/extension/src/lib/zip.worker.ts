@@ -3,6 +3,7 @@ import type { ZipFiles, ZipReply } from './zip.ts';
 
 self.addEventListener('message', (event: MessageEvent<ZipFiles>) => {
   try {
+    // oxlint-disable-next-line node/no-sync -- this is a dedicated Web Worker; blocking it is the point
     const data = zipSync(event.data);
     const reply: ZipReply = { data, ok: true };
     self.postMessage(reply, { transfer: [data.buffer] });

@@ -1,8 +1,9 @@
-import { type DaemonClient, createDaemonClient, toDaemonFailure } from './daemonClient';
+import { type DaemonClient, createDaemonClient, toDaemonFailure } from './daemonClient.ts';
 import type { Health, MachdownConfig } from '@machdown/contract';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { loadPairing } from './daemonStorage';
-import { useSharedSettings } from './useSharedSettings';
+import { loadPairing } from './daemonStorage.ts';
+import { runAsync } from '../lib/async.ts';
+import { useSharedSettings } from './useSharedSettings.ts';
 
 export type DaemonStatus =
   | { state: 'checking' }
@@ -120,11 +121,11 @@ export const useDaemonStatus = (): UseDaemonStatus => {
       }
     };
 
-    void check();
+    runAsync(check);
 
     const timer = window.setInterval(() => {
       if (document.visibilityState === 'visible') {
-        void check();
+        runAsync(check);
       }
     }, POLL_INTERVAL_MS);
 

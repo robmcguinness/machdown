@@ -1,7 +1,7 @@
 import type { ClipRequest, ClipResponse, ClipResult, ClipSettings } from '#types/clip.ts';
 import { Readability } from '@mozilla/readability';
 import TurndownService from 'turndown';
-import { sanitize } from './sanitize';
+import { sanitize } from './sanitize.ts';
 
 const SKIP_TAGS = new Set(['NAV', 'HEADER', 'FOOTER', 'ASIDE', 'SCRIPT', 'STYLE', 'NOSCRIPT']);
 

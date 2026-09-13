@@ -1,7 +1,7 @@
 import './index.css';
 import { ErrorBoundary } from 'react-error-boundary';
 import { ErrorScreen } from '#common/errorScreen.tsx';
-import { Options } from './Options';
+import { Options } from './Options.tsx';
 import ReactDOM from 'react-dom/client';
 import { StrictMode } from 'react';
 import { Toaster } from '#components/Toaster.tsx';
