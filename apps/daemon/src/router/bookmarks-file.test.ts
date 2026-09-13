@@ -1,4 +1,4 @@
-import { after, before, describe, it } from 'node:test';
+import { after, before, describe, test } from 'node:test';
 import { readFile, rm } from 'node:fs/promises';
 import type { BookmarkLink } from '@machdown/contract';
 import type { DaemonConfig } from '#config.ts';
@@ -69,21 +69,21 @@ describe('bookmarks in a folder', () => {
   const append = (links: readonly BookmarkLink[]) =>
     call('/v1/bookmarks/append', 'POST', { links });
 
-  it('refuses to append before a folder is chosen', async () => {
+  test('refuses to append before a folder is chosen', async () => {
     const response = await append([{ title: 'One', url: 'https://example.com/1' }]);
 
     assert.equal(response.statusCode, 400, response.body);
     assert.match(response.body, /NO_BOOKMARKS_DIR/);
   });
 
-  it('rejects a folder outside the allowed roots', async () => {
+  test('rejects a folder outside the allowed roots', async () => {
     const response = await call('/v1/bookmarks/location', 'PUT', { path: '/etc/machdown' });
 
     assert.equal(response.statusCode, 400, response.body);
     assert.match(response.body, /PATH_REJECTED/);
   });
 
-  it('creates the folder and reports it through health', async () => {
+  test('creates the folder and reports it through health', async () => {
     const response = await call('/v1/bookmarks/location', 'PUT', { path: folder });
 
     assert.equal(response.statusCode, 200, response.body);
@@ -95,7 +95,7 @@ describe('bookmarks in a folder', () => {
     assert.equal(response.json<{ path: string }>().path, stored);
   });
 
-  it('appends links, then skips the ones already there', async () => {
+  test('appends links, then skips the ones already there', async () => {
     const first = await append([
       { siteName: 'example.com', title: 'One', url: 'https://example.com/1' },
       { siteName: 'example.com', title: 'Two', url: 'https://example.com/2' },

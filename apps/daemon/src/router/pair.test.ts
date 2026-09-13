@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, it } from 'node:test';
+import { afterEach, beforeEach, describe, test } from 'node:test';
 import type { DaemonConfig } from '#config.ts';
 import type { DaemonState } from '#server/context.ts';
 import type { FastifyInstance } from 'fastify';
@@ -51,7 +51,7 @@ describe('POST /v1/pair', () => {
     await app.close();
   });
 
-  it('trades a valid code for a token that then authenticates', async () => {
+  test('trades a valid code for a token that then authenticates', async () => {
     const { code } = state.pairingCodes.issue();
 
     const response = await pair(app, code);
@@ -69,7 +69,7 @@ describe('POST /v1/pair', () => {
     assert.equal(authed.statusCode, 409, authed.body);
   });
 
-  it('stores only the hash of the token, never the token', async () => {
+  test('stores only the hash of the token, never the token', async () => {
     const { code } = state.pairingCodes.issue();
     const { token } = (await pair(app, code)).json<{ token: string }>();
 
@@ -78,7 +78,7 @@ describe('POST /v1/pair', () => {
     assert.match(state.config.extensions[0].tokenHash, /^[0-9a-f]{64}$/);
   });
 
-  it('refuses a code that has already been used', async () => {
+  test('refuses a code that has already been used', async () => {
     const { code } = state.pairingCodes.issue();
 
     assert.equal((await pair(app, code)).statusCode, 200);
@@ -86,7 +86,7 @@ describe('POST /v1/pair', () => {
     assert.equal(state.config.extensions.length, 1);
   });
 
-  it('refuses a code that has expired', async () => {
+  test('refuses a code that has expired', async () => {
     const issued = state.pairingCodes.issue();
     // Reach past the ten-minute window without waiting for it.
     const expired = Date.now() + 11 * 60 * 1000;
@@ -100,25 +100,25 @@ describe('POST /v1/pair', () => {
     }
   });
 
-  it('refuses a wrong code', async () => {
+  test('refuses a wrong code', async () => {
     state.pairingCodes.issue();
 
     assert.equal((await pair(app, 'ZZZZ-ZZZZ')).statusCode, 401);
     assert.equal(state.config.extensions.length, 0);
   });
 
-  it('refuses any code when none has been issued', async () => {
+  test('refuses any code when none has been issued', async () => {
     assert.equal((await pair(app, 'AAAA-AAAA')).statusCode, 401);
   });
 
-  it('accepts a code typed with stray case and spacing', async () => {
+  test('accepts a code typed with stray case and spacing', async () => {
     const { code } = state.pairingCodes.issue();
     const sloppy = ` ${code.toLowerCase().replace('-', ' - ')} `;
 
     assert.equal((await pair(app, sloppy)).statusCode, 200);
   });
 
-  it('replaces the previous token when an extension pairs again', async () => {
+  test('replaces the previous token when an extension pairs again', async () => {
     const first = state.pairingCodes.issue();
     const firstToken = (await pair(app, first.code)).json<{ token: string }>().token;
 
@@ -139,7 +139,7 @@ describe('POST /v1/pair', () => {
    * bounds the damage, but nothing else stopped a local process from spending
    * that window guessing as fast as it could.
    */
-  it('throttles repeated attempts', async () => {
+  test('throttles repeated attempts', async () => {
     state.pairingCodes.issue();
 
     const codes: number[] = [];
@@ -154,7 +154,7 @@ describe('POST /v1/pair', () => {
     assert.equal(throttled.json<{ error: { code: string } }>().error.code, 'TOO_MANY_REQUESTS');
   });
 
-  it('does not throttle the health check the extension polls', async () => {
+  test('does not throttle the health check the extension polls', async () => {
     const seen = new Set<number>();
     for (let attempt = 0; attempt < 40; attempt += 1) {
       seen.add((await app.inject({ method: 'GET', url: '/v1/health' })).statusCode);

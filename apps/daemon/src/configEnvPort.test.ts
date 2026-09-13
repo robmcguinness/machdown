@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, test } from 'node:test';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import os from 'node:os';
@@ -30,7 +30,7 @@ writeFileSync(
 const { loadDaemonConfig } = await import('./config.ts');
 
 describe('loadDaemonConfig with MACHDOWN_PORT', () => {
-  it('coerces the string override and wins over the stored port', async () => {
+  test('coerces the string override and wins over the stored port', async () => {
     const { config, issues } = await loadDaemonConfig();
 
     assert.deepEqual(issues, []);
@@ -39,19 +39,19 @@ describe('loadDaemonConfig with MACHDOWN_PORT', () => {
 });
 
 describe('effectivePort', () => {
-  it('prefers a valid CLI override over the stored port', async () => {
+  test('prefers a valid CLI override over the stored port', async () => {
     const { effectivePort } = await import('./config.ts');
 
     assert.equal(effectivePort(4123, 9999), 9999);
   });
 
-  it('accepts 0, which asks the OS for an ephemeral port', async () => {
+  test('accepts 0, which asks the OS for an ephemeral port', async () => {
     const { effectivePort } = await import('./config.ts');
 
     assert.equal(effectivePort(4123, 0), 0);
   });
 
-  it('falls back to the stored port for an absent or unusable override', async () => {
+  test('falls back to the stored port for an absent or unusable override', async () => {
     const { effectivePort } = await import('./config.ts');
 
     // Held in a variable rather than passed inline: an absent `--port` is
@@ -64,7 +64,7 @@ describe('effectivePort', () => {
     assert.equal(effectivePort(4123, Number.POSITIVE_INFINITY), 4123);
   });
 
-  it('leaves the serialized config untouched, so no override can be persisted', async () => {
+  test('leaves the serialized config untouched, so no override can be persisted', async () => {
     const { effectivePort: resolve, serializeConfig } = await import('./config.ts');
     const config = {
       bookmarksPath: null,

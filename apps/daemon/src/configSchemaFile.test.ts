@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, test } from 'node:test';
 import { mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import type { DaemonConfig } from './config.ts';
@@ -41,19 +41,19 @@ const config: DaemonConfig = {
 };
 
 describe('serializeConfig', () => {
-  it('writes $schema first, so an editor finds it at the top of the file', () => {
+  test('writes $schema first, so an editor finds it at the top of the file', () => {
     const text = serializeConfig({ ...config });
 
     assert.ok(text.startsWith('{\n  "$schema": "./daemon.schema.json",\n'), text);
   });
 
-  it('points at the file the daemon writes next to the config', () => {
+  test('points at the file the daemon writes next to the config', () => {
     const parsed = SchemaPointerSchema.parse(JSON.parse(serializeConfig({ ...config })));
 
     assert.equal(path.resolve(path.dirname(CONFIG_PATH), parsed.$schema), CONFIG_SCHEMA_PATH);
   });
 
-  it('round-trips through the loader without an unknown-key issue', async () => {
+  test('round-trips through the loader without an unknown-key issue', async () => {
     // Also what creates `~/.machdown` here: the daemon writes the schema on a
     // first boot, before there is any directory to write the config into.
     await ensureConfigSchemaFile();
@@ -66,7 +66,7 @@ describe('serializeConfig', () => {
 });
 
 describe('ensureConfigSchemaFile', () => {
-  it('writes the schema built from Zod', async () => {
+  test('writes the schema built from Zod', async () => {
     await ensureConfigSchemaFile();
 
     const written = readFileSync(CONFIG_SCHEMA_PATH, 'utf8');
@@ -74,7 +74,7 @@ describe('ensureConfigSchemaFile', () => {
     assert.equal(written, `${JSON.stringify(buildConfigJsonSchema(), null, 2)}\n`);
   });
 
-  it('leaves an already-correct file untouched', async () => {
+  test('leaves an already-correct file untouched', async () => {
     await ensureConfigSchemaFile();
     const before = statSync(CONFIG_SCHEMA_PATH).mtimeMs;
 
@@ -83,7 +83,7 @@ describe('ensureConfigSchemaFile', () => {
     assert.equal(statSync(CONFIG_SCHEMA_PATH).mtimeMs, before);
   });
 
-  it('replaces a stale file', async () => {
+  test('replaces a stale file', async () => {
     writeFileSync(CONFIG_SCHEMA_PATH, '{}\n', 'utf8');
 
     await ensureConfigSchemaFile();
@@ -91,7 +91,7 @@ describe('ensureConfigSchemaFile', () => {
     assert.deepEqual(JSON.parse(readFileSync(CONFIG_SCHEMA_PATH, 'utf8')), buildConfigJsonSchema());
   });
 
-  it('creates ~/.machdown on a first boot, before any config exists', () => {
+  test('creates ~/.machdown on a first boot, before any config exists', () => {
     assert.equal(path.dirname(CONFIG_SCHEMA_PATH), path.join(home, '.machdown'));
     assert.ok(statSync(path.dirname(CONFIG_SCHEMA_PATH)).isDirectory());
   });

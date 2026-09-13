@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, it } from 'node:test';
+import { afterEach, beforeEach, describe, test } from 'node:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { DEFAULT_CONFIG, MachdownConfigSchema, RepoInitResultSchema } from '@machdown/contract';
 import type { FastifyInstance } from 'fastify';
@@ -44,7 +44,7 @@ describe('POST /v1/repo/init', () => {
     await rm(repo, { force: true, recursive: true });
   });
 
-  it('commits the seed on first init and preserves it on repeated init', async () => {
+  test('commits the seed on first init and preserves it on repeated init', async () => {
     const config = {
       categories: ['Research', 'Reading'],
       defaultCategory: 'Reading',

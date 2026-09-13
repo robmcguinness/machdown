@@ -12,6 +12,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { FastifyBaseLogger, FastifyRequest } from 'fastify';
 import { pino } from 'pino';
+import { setImmediate as nextMacrotask } from 'node:timers/promises';
 
 /**
  * The store decides what every logger-less singleton sees. The interesting
@@ -22,10 +23,7 @@ import { pino } from 'pino';
 const markedLog = (name: string): FastifyBaseLogger => pino({ level: 'silent' }).child({ name });
 
 /** Resolves on the next macrotask, so the other chain gets a turn. */
-const nextTick = async (): Promise<void> =>
-  new Promise<void>((resolve) => {
-    setTimeout(resolve, 0);
-  });
+const nextTick = (): Promise<void> => nextMacrotask();
 
 /** Enters a request, yields so the other chain runs, then writes its mark. */
 const handle = async (store: RequestStore, mark: string): Promise<void> => {
@@ -39,6 +37,7 @@ const handle = async (store: RequestStore, mark: string): Promise<void> => {
 const inChain = async <T>(body: () => Promise<T>): Promise<T> =>
   new Promise<T>((resolve, reject) => {
     setImmediate(() => {
+      // oxlint-disable-next-line promise/prefer-await-to-then -- body must start inside the immediate's own async resource so enterWith cannot leak to the caller
       body().then(resolve, reject);
     });
   });

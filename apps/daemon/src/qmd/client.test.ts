@@ -13,6 +13,8 @@ import { pino } from 'pino';
 import { z } from 'zod';
 import os from 'node:os';
 import path from 'node:path';
+// oxlint-disable-next-line no-restricted-imports -- poll interval against a real qmd process, and time for the real model to enter an embed; neither has an event to await
+import { setTimeout as sleep } from 'node:timers/promises';
 
 /**
  * The integration test that indexes clips and loads a real embedding model.
@@ -54,9 +56,7 @@ const waitForIndex = async (target: { collection: string; repoPath: string }): P
     if (status.indexed > 0) {
       return status.indexed;
     }
-    await new Promise((resolve) => {
-      setTimeout(resolve, 250);
-    });
+    await sleep(250);
   }
 
   return 0;
@@ -354,9 +354,7 @@ describe('closing the search index', () => {
       worker.postMessage({ id: 2, kind: 'embed' } satisfies QmdRequest);
       await embedding;
       // Give the real model time to enter the embed, then request cancellation.
-      await new Promise((resolve) => {
-        setTimeout(resolve, 1_000);
-      });
+      await sleep(1_000);
       const closed = reply(3);
       const startedAt = Date.now();
       worker.postMessage({ id: 3, kind: 'close' } satisfies QmdRequest);

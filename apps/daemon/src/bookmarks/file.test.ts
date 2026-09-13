@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, test } from 'node:test';
 import { appendBookmarks } from './file.ts';
 import assert from 'node:assert/strict';
 
@@ -12,7 +12,7 @@ const DAY_ONE = new Date('2026-03-04T10:00:00.000Z');
 const DAY_TWO = new Date('2026-03-05T09:30:00.000Z');
 
 describe('appendBookmarks', () => {
-  it('starts a new file with a title and a dated heading', () => {
+  test('starts a new file with a title and a dated heading', () => {
     const result = appendBookmarks(
       null,
       [{ siteName: 'example.com', title: 'Example', url: 'https://example.com/a' }],
@@ -27,7 +27,7 @@ describe('appendBookmarks', () => {
     );
   });
 
-  it('reuses the heading when appending on the same day', () => {
+  test('reuses the heading when appending on the same day', () => {
     const first = appendBookmarks(
       null,
       [{ siteName: 'example.com', title: 'One', url: 'https://example.com/1' }],
@@ -49,7 +49,7 @@ describe('appendBookmarks', () => {
     );
   });
 
-  it('opens a new heading on a later day', () => {
+  test('opens a new heading on a later day', () => {
     const first = appendBookmarks(null, [{ title: 'One', url: 'https://example.com/1' }], DAY_ONE);
 
     const second = appendBookmarks(
@@ -66,7 +66,7 @@ describe('appendBookmarks', () => {
     );
   });
 
-  it('skips URLs already in the file and repeats within the batch', () => {
+  test('skips URLs already in the file and repeats within the batch', () => {
     const first = appendBookmarks(null, [{ title: 'One', url: 'https://example.com/1' }], DAY_ONE);
 
     const second = appendBookmarks(
@@ -85,7 +85,7 @@ describe('appendBookmarks', () => {
     assert.doesNotMatch(second.content, /New twice/);
   });
 
-  it('leaves the file untouched when every link is a duplicate', () => {
+  test('leaves the file untouched when every link is a duplicate', () => {
     const first = appendBookmarks(null, [{ title: 'One', url: 'https://example.com/1' }], DAY_ONE);
 
     const second = appendBookmarks(
@@ -99,7 +99,7 @@ describe('appendBookmarks', () => {
     assert.equal(second.content, first.content);
   });
 
-  it('falls back to the URL for an empty title and collapses a multi-line one', () => {
+  test('falls back to the URL for an empty title and collapses a multi-line one', () => {
     const result = appendBookmarks(
       null,
       [
@@ -116,7 +116,7 @@ describe('appendBookmarks', () => {
     assert.match(result.content, /- \[Two lines]\(https:\/\/example\.com\/wrapped\)/);
   });
 
-  it('escapes a bracket in the title and a parenthesis in the URL', () => {
+  test('escapes a bracket in the title and a parenthesis in the URL', () => {
     const result = appendBookmarks(
       null,
       [{ title: 'Draft [WIP]', url: 'https://example.com/a_(b)' }],

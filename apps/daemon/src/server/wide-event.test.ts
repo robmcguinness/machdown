@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, test } from 'node:test';
 import { REDACT_PATHS, buildApp } from './app.ts';
 import type { DaemonConfig } from '#config.ts';
 import type { FastifyInstance } from 'fastify';
@@ -97,7 +97,7 @@ const captureApp = async (
 };
 
 describe('the wide request event', () => {
-  it('emits exactly one event per request, carrying req, res and durationMs', async () => {
+  test('emits exactly one event per request, carrying req, res and durationMs', async () => {
     const { app, wide } = await captureApp();
 
     const response = await app.inject({ headers: authorized, method: 'GET', url: '/v1/health' });
@@ -115,7 +115,7 @@ describe('the wide request event', () => {
     await app.close();
   });
 
-  it('counts one event per request across several requests', async () => {
+  test('counts one event per request across several requests', async () => {
     const { app, wide } = await captureApp();
 
     for (const url of ['/v1/health', '/v1/health', '/openapi.json']) {
@@ -127,7 +127,7 @@ describe('the wide request event', () => {
     await app.close();
   });
 
-  it('redacts the Authorization header out of the event', async () => {
+  test('redacts the Authorization header out of the event', async () => {
     const { app, raw, wide } = await captureApp();
 
     await app.inject({ headers: authorized, method: 'GET', url: '/v1/health' });
@@ -148,7 +148,7 @@ describe('the wide request event', () => {
     await app.close();
   });
 
-  it('keeps the headers that explain a decision', async () => {
+  test('keeps the headers that explain a decision', async () => {
     const { app, wide } = await captureApp();
 
     await app.inject({
@@ -169,7 +169,7 @@ describe('the wide request event', () => {
     await app.close();
   });
 
-  it('emits one event for a path with no route', async () => {
+  test('emits one event for a path with no route', async () => {
     const { app, wide } = await captureApp();
 
     const response = await app.inject({
@@ -186,7 +186,7 @@ describe('the wide request event', () => {
     await app.close();
   });
 
-  it('emits one event carrying the error when a handler throws', async () => {
+  test('emits one event carrying the error when a handler throws', async () => {
     const { app, wide } = await captureApp((scoped) => {
       scoped.addHook('onRequest', async (request) => {
         if (request.url === '/__throw') {
@@ -210,7 +210,7 @@ describe('the wide request event', () => {
     await app.close();
   });
 
-  it('leaves err.code readable on both the wide event and the error line', async () => {
+  test('leaves err.code readable on both the wide event and the error line', async () => {
     const { app, raw, wide } = await captureApp((scoped) => {
       scoped.addHook('onRequest', async (request) => {
         if (request.url === '/__throw') {
@@ -236,7 +236,7 @@ describe('the wide request event', () => {
     await app.close();
   });
 
-  it('names every path it redacts, and no wildcard over `code`', () => {
+  test('names every path it redacts, and no wildcard over `code`', () => {
     // A ratchet, not a tautology: the list is exported so a future field that
     // carries a secret has one obvious place to be added.
     for (const path of [
@@ -263,7 +263,7 @@ describe('the wide request event', () => {
  * procedure, the caller and a typed error reach the same one line.
  */
 describe('the oRPC enrichment of the wide event', () => {
-  it('names the procedure and the paired extension on a successful call', async () => {
+  test('names the procedure and the paired extension on a successful call', async () => {
     const { app, wide } = await captureApp();
 
     const response = await app.inject({ headers: authorized, method: 'GET', url: '/v1/health' });
@@ -276,7 +276,7 @@ describe('the oRPC enrichment of the wide event', () => {
     await app.close();
   });
 
-  it('names a nested procedure by its full path', async () => {
+  test('names a nested procedure by its full path', async () => {
     const { app, wide } = await captureApp();
 
     // The fixture config has no repoPath, so `withRepoPath` fails with
@@ -292,7 +292,7 @@ describe('the oRPC enrichment of the wide event', () => {
     await app.close();
   });
 
-  it('records the error code of an unauthorized call', async () => {
+  test('records the error code of an unauthorized call', async () => {
     const { app, wide } = await captureApp();
 
     // `/v1/pair` is reachable without a token, so the rejection happens inside
@@ -313,7 +313,7 @@ describe('the oRPC enrichment of the wide event', () => {
     await app.close();
   });
 
-  it('still emits an event for an unauthenticated call, with no extensionId', async () => {
+  test('still emits an event for an unauthenticated call, with no extensionId', async () => {
     const { app, wide } = await captureApp();
 
     const response = await app.inject({ method: 'GET', url: '/v1/health' });
@@ -329,14 +329,14 @@ describe('the oRPC enrichment of the wide event', () => {
 });
 
 describe('the error code read off a thrown value', () => {
-  it('reads the code of a typed oRPC error', () => {
+  test('reads the code of a typed oRPC error', () => {
     assert.equal(
       errorCodeOf(Object.assign(new Error('nope'), { code: 'UNAUTHORIZED' })),
       'UNAUTHORIZED',
     );
   });
 
-  it('answers UNKNOWN for anything that carries no string code', () => {
+  test('answers UNKNOWN for anything that carries no string code', () => {
     // `throw null` is legal, and a `code` is not always a string. Neither may
     // become a TypeError thrown from the middleware in place of the original.
     for (const thrown of [null, undefined, 'a string', 42, new Error('bare'), { code: 7 }]) {

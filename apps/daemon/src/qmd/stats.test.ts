@@ -22,6 +22,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import { createDaemonState } from '#server/context.ts';
 import { pino } from 'pino';
 import { recordQmdCall, type QmdStats } from './stats.ts';
+// oxlint-disable-next-line no-restricted-imports -- `sleep(SLOW_MS)` is the measured workload, and one negative assertion needs wall time; condition waits use `until`
 import { setImmediate as flush, setTimeout as sleep } from 'node:timers/promises';
 
 /**
@@ -40,10 +41,20 @@ import { setImmediate as flush, setTimeout as sleep } from 'node:timers/promises
 
 const silent = (): FastifyBaseLogger => pino({ level: 'silent' });
 
+/** Flushes the queue until `ready` holds, bounded by a predictable wall-clock deadline. */
+const until = async (ready: () => boolean, timeoutMs = 1_000): Promise<void> => {
+  const deadline = performance.now() + timeoutMs;
+  while (!ready() && performance.now() < deadline) {
+    await flush();
+  }
+  assert.ok(ready(), 'condition did not hold in time');
+};
+
 /** Runs `body` in its own async chain, so `enterWith` cannot leak out of it. */
 const inChain = async <T>(body: () => Promise<T>): Promise<T> =>
   new Promise<T>((resolve, reject) => {
     setImmediate(() => {
+      // oxlint-disable-next-line promise/prefer-await-to-then -- body must start inside the immediate's own async resource so enterWith cannot leak to the caller
       body().then(resolve, reject);
     });
   });
@@ -362,7 +373,7 @@ describe('background index updates', () => {
     const event = await inRequest(async () => {
       scheduleIndexUpdate(target, 1);
     });
-    await sleep(20);
+    await until(() => requests.length > 0);
     assert.deepEqual(
       requests.map((entry) => entry.kind),
       ['update'],
@@ -400,7 +411,7 @@ describe('background index updates', () => {
       const event = await inRequest(async () => {
         assert.doesNotThrow(() => scheduleIndexUpdate(target, 1));
       });
-      await sleep(20);
+      await until(() => requests.length > 0);
       reply('update', failedKind !== 'update');
       await flush();
       if (failedKind === 'embed') {

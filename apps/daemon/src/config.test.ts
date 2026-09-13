@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, test } from 'node:test';
 import { DEFAULT_DAEMON_PORT } from '@machdown/contract/constants';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
@@ -50,11 +50,11 @@ const valid = {
 };
 
 describe('loadDaemonConfig', () => {
-  it('reads the redirected home, not the operator’s own config', () => {
+  test('reads the redirected home, not the operator’s own config', () => {
     assert.equal(CONFIG_PATH, configPath);
   });
 
-  it('accepts a valid document without issues', async () => {
+  test('accepts a valid document without issues', async () => {
     const { config, issues } = await load(valid);
 
     assert.deepEqual(issues, []);
@@ -62,7 +62,7 @@ describe('loadDaemonConfig', () => {
     assert.equal(config.repoPath, null);
   });
 
-  it('reports an unknown top-level key', async () => {
+  test('reports an unknown top-level key', async () => {
     const { config, issues } = await load({ ...valid, prot: 9000 });
 
     assert.deepEqual(issues, [{ field: 'prot', reason: 'unknown key' }]);
@@ -70,13 +70,13 @@ describe('loadDaemonConfig', () => {
     assert.equal(config.port, 4123);
   });
 
-  it('accepts $schema as a known key', async () => {
+  test('accepts $schema as a known key', async () => {
     const { issues } = await load({ $schema: './daemon.schema.json', ...valid });
 
     assert.deepEqual(issues, []);
   });
 
-  it('falls back to the default port when the file quotes it', async () => {
+  test('falls back to the default port when the file quotes it', async () => {
     const { config, issues } = await load({ ...valid, port: '8080' });
 
     assert.equal(config.port, DEFAULT_DAEMON_PORT);
@@ -84,14 +84,14 @@ describe('loadDaemonConfig', () => {
     assert.equal(issues[0]?.field, 'port');
   });
 
-  it('reports an out-of-range port and keeps the default', async () => {
+  test('reports an out-of-range port and keeps the default', async () => {
     const { config, issues } = await load({ ...valid, port: 70_000 });
 
     assert.equal(config.port, DEFAULT_DAEMON_PORT);
     assert.equal(issues[0]?.field, 'port');
   });
 
-  it('drops only the malformed extension entries', async () => {
+  test('drops only the malformed extension entries', async () => {
     const good = {
       extensionId: 'good-extension',
       label: 'Good',
@@ -109,14 +109,14 @@ describe('loadDaemonConfig', () => {
     assert.equal(issues[0]?.field, 'extensions[1]');
   });
 
-  it('reports a non-array extensions field and keeps booting', async () => {
+  test('reports a non-array extensions field and keeps booting', async () => {
     const { config, issues } = await load({ ...valid, extensions: {} });
 
     assert.deepEqual(config.extensions, []);
     assert.deepEqual(issues, [{ field: 'extensions', reason: 'expected an array' }]);
   });
 
-  it('reports a document that is not a JSON object', async () => {
+  test('reports a document that is not a JSON object', async () => {
     writeFileSync(configPath, '[]\n', 'utf8');
     const { config, issues } = await loadDaemonConfig();
 
@@ -124,14 +124,14 @@ describe('loadDaemonConfig', () => {
     assert.equal(issues[0]?.field, 'config');
   });
 
-  it('reports unparsable JSON without an unknown-key cascade', async () => {
+  test('reports unparsable JSON without an unknown-key cascade', async () => {
     writeFileSync(configPath, '{ not json\n', 'utf8');
     const { issues } = await loadDaemonConfig();
 
     assert.deepEqual(issues, [{ field: 'config', reason: 'the file could not be read or parsed' }]);
   });
 
-  it('reports an empty repoPath instead of using it', async () => {
+  test('reports an empty repoPath instead of using it', async () => {
     const { config, issues } = await load({ ...valid, repoPath: '' });
 
     assert.equal(config.repoPath, null);

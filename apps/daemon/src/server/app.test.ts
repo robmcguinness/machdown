@@ -1,4 +1,4 @@
-import { after, before, describe, it } from 'node:test';
+import { after, before, describe, test } from 'node:test';
 import type { DaemonConfig } from '#config.ts';
 import type { FastifyInstance } from 'fastify';
 import { PUBLIC_PATHS } from './plugins/auth.ts';
@@ -50,14 +50,14 @@ describe('HTTP layer', () => {
   });
 
   describe('authentication', () => {
-    it('rejects a request with no Authorization header', async () => {
+    test('rejects a request with no Authorization header', async () => {
       const response = await app.inject({ method: 'GET', url: '/v1/clips' });
 
       assert.equal(response.statusCode, 401);
       assert.equal(response.json<{ error: { code: string } }>().error.code, 'UNAUTHORIZED');
     });
 
-    it('rejects an unrecognized token', async () => {
+    test('rejects an unrecognized token', async () => {
       const response = await app.inject({
         headers: { authorization: 'Bearer not-the-token' },
         method: 'GET',
@@ -67,7 +67,7 @@ describe('HTTP layer', () => {
       assert.equal(response.statusCode, 401);
     });
 
-    it('rejects a malformed Authorization header', async () => {
+    test('rejects a malformed Authorization header', async () => {
       for (const authorization of ['', 'Bearer', 'Basic abc', TOKEN]) {
         const response = await app.inject({
           headers: { authorization },
@@ -79,7 +79,7 @@ describe('HTTP layer', () => {
       }
     });
 
-    it('lets every public path through without a token', async () => {
+    test('lets every public path through without a token', async () => {
       for (const path of PUBLIC_PATHS) {
         // `/v1/pair` is a POST; asking for it with GET still proves the auth
         // hook stood aside, because the refusal comes from the router instead.
@@ -93,14 +93,14 @@ describe('HTTP layer', () => {
      * trailing slash missed the public-path set and came back as an auth
      * failure — even though oRPC's router treats the two as the same route.
      */
-    it('treats a trailing slash as the same path', async () => {
+    test('treats a trailing slash as the same path', async () => {
       const response = await app.inject({ method: 'GET', url: '/v1/health/' });
 
       assert.equal(response.statusCode, 200, response.body);
       assert.equal(response.json<{ ok: boolean }>().ok, true);
     });
 
-    it('ignores the query string when matching a public path', async () => {
+    test('ignores the query string when matching a public path', async () => {
       const response = await app.inject({ method: 'GET', url: '/v1/health?cache=0' });
 
       assert.equal(response.statusCode, 200, response.body);
@@ -111,13 +111,13 @@ describe('HTTP layer', () => {
      * dot segments, so neither may the hook — if it did, it would authorize one
      * path and run another.
      */
-    it('does not resolve dot segments into a public path', async () => {
+    test('does not resolve dot segments into a public path', async () => {
       const response = await app.inject({ method: 'GET', url: '/v1/clips/../v1/health' });
 
       assert.equal(response.statusCode, 401, response.body);
     });
 
-    it('does not treat a doubled leading slash as a public path', async () => {
+    test('does not treat a doubled leading slash as a public path', async () => {
       const response = await app.inject({ method: 'GET', url: '//v1/health' });
 
       assert.equal(response.statusCode, 401, response.body);
@@ -125,7 +125,7 @@ describe('HTTP layer', () => {
   });
 
   describe('the security hook', () => {
-    it('refuses a request from an origin that is not an extension', async () => {
+    test('refuses a request from an origin that is not an extension', async () => {
       const response = await app.inject({
         headers: { origin: 'https://evil.test' },
         method: 'GET',
@@ -136,7 +136,7 @@ describe('HTTP layer', () => {
       assert.equal(response.json<{ error: { code: string } }>().error.code, 'FORBIDDEN');
     });
 
-    it('accepts a request from an extension origin', async () => {
+    test('accepts a request from an extension origin', async () => {
       const response = await app.inject({
         headers: { origin: EXTENSION_ORIGIN },
         method: 'GET',
@@ -146,7 +146,7 @@ describe('HTTP layer', () => {
       assert.equal(response.statusCode, 200, response.body);
     });
 
-    it('refuses a cross-site request', async () => {
+    test('refuses a cross-site request', async () => {
       const response = await app.inject({
         headers: { 'sec-fetch-site': 'cross-site' },
         method: 'GET',
@@ -156,7 +156,7 @@ describe('HTTP layer', () => {
       assert.equal(response.statusCode, 403);
     });
 
-    it('refuses a mutating request that is not JSON', async () => {
+    test('refuses a mutating request that is not JSON', async () => {
       const response = await app.inject({
         headers: { ...authorized, 'content-type': 'text/plain' },
         method: 'POST',
@@ -169,7 +169,7 @@ describe('HTTP layer', () => {
   });
 
   describe('CORS', () => {
-    it('answers a preflight from an extension origin', async () => {
+    test('answers a preflight from an extension origin', async () => {
       const response = await app.inject({
         headers: {
           'access-control-request-headers': 'authorization,content-type',
@@ -189,7 +189,7 @@ describe('HTTP layer', () => {
      * accepts, or a contract that adds one fails preflight rather than failing
      * a review.
      */
-    it('advertises every method the router accepts', async () => {
+    test('advertises every method the router accepts', async () => {
       const response = await app.inject({
         headers: { 'access-control-request-method': 'DELETE', origin: EXTENSION_ORIGIN },
         method: 'OPTIONS',
@@ -206,7 +206,7 @@ describe('HTTP layer', () => {
       }
     });
 
-    it('does not grant an unknown origin', async () => {
+    test('does not grant an unknown origin', async () => {
       const response = await app.inject({
         headers: { 'access-control-request-method': 'POST', origin: 'https://evil.test' },
         method: 'OPTIONS',
@@ -218,7 +218,7 @@ describe('HTTP layer', () => {
   });
 
   describe('error responses', () => {
-    it('returns the daemon envelope for an unknown path', async () => {
+    test('returns the daemon envelope for an unknown path', async () => {
       const response = await app.inject({
         headers: authorized,
         method: 'GET',
@@ -229,7 +229,7 @@ describe('HTTP layer', () => {
       assert.equal(response.json<{ error: { code: string } }>().error.code, 'NOT_FOUND');
     });
 
-    it('reports a repo-less request as a typed conflict, not a crash', async () => {
+    test('reports a repo-less request as a typed conflict, not a crash', async () => {
       // The fixture config has no repoPath, so `withRepoPath` must produce
       // NO_REPO. `/v1/config` is the route to prove it on: it takes no input,
       // so nothing can fail validation ahead of the middleware.
@@ -239,7 +239,7 @@ describe('HTTP layer', () => {
       assert.match(response.body, /NO_REPO/);
     });
 
-    it('reports bad input as a validation failure', async () => {
+    test('reports bad input as a validation failure', async () => {
       // `/v1/clips` requires a `url`; omitting it must be a 400, not a 500.
       const response = await app.inject({ headers: authorized, method: 'GET', url: '/v1/clips' });
 
@@ -253,7 +253,7 @@ describe('HTTP layer', () => {
      * when it is registered — so every route ran on the default handler and
      * errors came back in Fastify's shape instead of the daemon's.
      */
-    it('renders a thrown error in the daemon envelope', async () => {
+    test('renders a thrown error in the daemon envelope', async () => {
       const scoped = await buildApp(createDaemonState(config(), '0.0.0-test'));
       scoped.addHook('onRequest', async (request) => {
         if (request.url === '/__throw') {
@@ -278,7 +278,7 @@ describe('HTTP layer', () => {
   });
 
   describe('socket timeouts', () => {
-    it('keeps headersTimeout above keepAliveTimeout', () => {
+    test('keeps headersTimeout above keepAliveTimeout', () => {
       // Node's default headersTimeout is 60 s, under the 72 s keep-alive the
       // daemon promises. The shorter of the two wins, so the socket used to
       // die before the client stopped reusing it.
@@ -290,7 +290,7 @@ describe('HTTP layer', () => {
   });
 
   describe('documentation', () => {
-    it('serves a spec covering every contract path', async () => {
+    test('serves a spec covering every contract path', async () => {
       const response = await app.inject({ method: 'GET', url: '/openapi.json' });
 
       assert.equal(response.statusCode, 200);
@@ -303,7 +303,7 @@ describe('HTTP layer', () => {
       }
     });
 
-    it('serves the docs page with a pinned, integrity-checked bundle', async () => {
+    test('serves the docs page with a pinned, integrity-checked bundle', async () => {
       const response = await app.inject({ method: 'GET', url: '/docs' });
 
       assert.equal(response.statusCode, 200);
@@ -314,7 +314,7 @@ describe('HTTP layer', () => {
       assert.match(response.body, /crossorigin="anonymous"/);
     });
 
-    it('sends security headers on the one HTML page it serves', async () => {
+    test('sends security headers on the one HTML page it serves', async () => {
       const response = await app.inject({ method: 'GET', url: '/docs' });
 
       assert.match(String(response.headers['content-security-policy']), /default-src 'self'/);

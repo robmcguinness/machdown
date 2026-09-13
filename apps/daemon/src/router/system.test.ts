@@ -1,4 +1,4 @@
-import { after, before, describe, it } from 'node:test';
+import { after, before, describe, test } from 'node:test';
 import type { DaemonConfig } from '#config.ts';
 import type { FastifyInstance } from 'fastify';
 import assert from 'node:assert/strict';
@@ -47,7 +47,7 @@ describe('GET /v1/system/directories', () => {
       url: `/v1/system/directories${query}`,
     });
 
-  it('coerces boolean query params', async () => {
+  test('coerces boolean query params', async () => {
     const response = await get('?path=&showHidden=false');
 
     assert.equal(response.statusCode, 200, response.body);
@@ -56,13 +56,13 @@ describe('GET /v1/system/directories', () => {
     assert.ok(body.roots.length > 0);
   });
 
-  it('applies schema defaults when params are omitted', async () => {
+  test('applies schema defaults when params are omitted', async () => {
     const response = await get('');
 
     assert.equal(response.statusCode, 200, response.body);
   });
 
-  it('lists a real directory', async () => {
+  test('lists a real directory', async () => {
     const response = await get('?path=~&showHidden=true');
 
     assert.equal(response.statusCode, 200, response.body);
@@ -70,7 +70,7 @@ describe('GET /v1/system/directories', () => {
     assert.ok(Array.isArray(body.entries));
   });
 
-  it('rejects a path outside the allowed roots', async () => {
+  test('rejects a path outside the allowed roots', async () => {
     const response = await get('?path=%2Fetc&showHidden=false');
 
     assert.equal(response.statusCode, 400, response.body);

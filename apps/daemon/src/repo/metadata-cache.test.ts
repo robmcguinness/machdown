@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+// oxlint-disable-next-line no-restricted-imports -- the interval of a bounded poll on fs-watcher events (two retry loops below), not a fixed sleep
 import { setTimeout as delay } from 'node:timers/promises';
 import { readFile, rename, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import { makeRepo, writeClip } from '#test-helpers.ts';
