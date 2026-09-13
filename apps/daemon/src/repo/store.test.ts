@@ -6,6 +6,7 @@ import {
   initConfig,
   CONFIG_FILE,
   invalidateClipSnapshot,
+  listRecentClips,
   loadClipIndex,
   lookupByUrl,
   readConfig,
@@ -225,6 +226,55 @@ const scanned = (relPath: string, clipped: string, updated?: string): ScannedCli
   updated,
   url: 'https://example.com/a',
   urlKey: 'example.com/a',
+});
+
+/** Three clips whose save order differs from their clip order. */
+const seedRecent = async (repoPath: string): Promise<void> => {
+  await writeClip(repoPath, 'clips/old.md', {
+    categories: '[Reference]',
+    clipped: '2026-01-01T00:00:00.000Z',
+    title: 'Old',
+    url: 'https://example.com/old',
+  });
+  await writeClip(repoPath, 'clips/revised.md', {
+    categories: '[Reading]',
+    clipped: '2026-01-02T00:00:00.000Z',
+    title: 'Revised',
+    updated: '2026-03-01T00:00:00.000Z',
+    url: 'https://example.com/revised',
+  });
+  await writeClip(repoPath, 'clips/newest.md', {
+    categories: '[Reference]',
+    clipped: '2026-02-01T00:00:00.000Z',
+    title: 'Newest clip',
+    url: 'https://example.com/newest',
+  });
+};
+
+describe('listRecentClips', () => {
+  test('orders by the last save, so a revised old clip outranks a newer untouched one', async () => {
+    const repoPath = await makeRepo();
+    await seedRecent(repoPath);
+
+    const recent = await listRecentClips(repoPath, { limit: 10 });
+
+    assert.deepEqual(
+      recent.map((clip) => clip.relPath),
+      ['clips/revised.md', 'clips/newest.md', 'clips/old.md'],
+    );
+  });
+
+  test('applies the category filter before the limit', async () => {
+    const repoPath = await makeRepo();
+    await seedRecent(repoPath);
+
+    const recent = await listRecentClips(repoPath, { categories: ['Reference'], limit: 1 });
+
+    assert.deepEqual(
+      recent.map((clip) => clip.relPath),
+      ['clips/newest.md'],
+    );
+  });
 });
 
 describe('snapshot index', () => {

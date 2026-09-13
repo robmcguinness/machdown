@@ -724,6 +724,30 @@ export const lookupByUrl = async (
   return { absPath, clip };
 };
 
+/** What "newest" means for a listing: the last save if there was one, else the clip. */
+const freshnessOf = (clip: ScannedClip): string => clip.updated ?? clip.clipped;
+
+/**
+ * The newest documents first, from the metadata snapshot alone.
+ *
+ * No body is read and no index is consulted, so this answers in milliseconds
+ * whatever the repository size and works before qmd has ever run.
+ */
+export const listRecentClips = async (
+  repoPath: string,
+  options: { categories?: readonly string[]; limit: number },
+): Promise<ScannedClip[]> => {
+  const wanted = new Set(options.categories ?? []);
+  const clips = await snapshotClips(repoPath);
+  return clips
+    .filter((clip) => wanted.size === 0 || clip.categories.some((category) => wanted.has(category)))
+    .toSorted((a, b) => {
+      const byDate = freshnessOf(b).localeCompare(freshnessOf(a));
+      return byDate === 0 ? a.relPath.localeCompare(b.relPath) : byDate;
+    })
+    .slice(0, options.limit);
+};
+
 export const readClip = async (repoPath: string, relPath: string): Promise<ClipDocument> => {
   const absPath = await resolveRepoRelative(repoPath, relPath);
   const source = await readFile(absPath, 'utf8');

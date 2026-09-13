@@ -209,6 +209,28 @@ export const ClipDocumentSchema = z.object({
   path: z.string(),
 });
 
+export const RecentClipsRequestSchema = z.object({
+  /** Omitted means every category. */
+  categories: z.array(z.string()).optional(),
+  limit: z.number().int().min(1).max(200).default(30),
+});
+
+/** One clip as the repository listing knows it: frontmatter only, no body. */
+export const ClipSummarySchema = z.object({
+  categories: z.array(z.string()),
+  clipped: z.string(),
+  kind: DocumentKindSchema,
+  relPath: z.string(),
+  site: z.string(),
+  title: z.string(),
+  updated: z.string().optional(),
+  url: z.string(),
+});
+
+export const RecentClipsResultSchema = z.object({
+  results: z.array(ClipSummarySchema),
+});
+
 /**
  * `search` is BM25 only, `vsearch` is vector similarity, `query` adds an LLM
  * reranker. `query` can take seconds, so the UI defaults to `search`.
@@ -480,6 +502,9 @@ export type BookmarksLocation = z.infer<typeof BookmarksLocationSchema>;
 export type ClipLookupResult = z.infer<typeof ClipLookupResultSchema>;
 export type ClipFrontmatter = z.infer<typeof ClipFrontmatterSchema>;
 export type ClipDocument = z.infer<typeof ClipDocumentSchema>;
+export type RecentClipsRequest = z.infer<typeof RecentClipsRequestSchema>;
+export type ClipSummary = z.infer<typeof ClipSummarySchema>;
+export type RecentClipsResult = z.infer<typeof RecentClipsResultSchema>;
 export type SuggestItem = z.infer<typeof SuggestItemSchema>;
 export type CategorySuggestRequest = z.infer<typeof CategorySuggestRequestSchema>;
 export type SuggestionReason = z.infer<typeof SuggestionReasonSchema>;

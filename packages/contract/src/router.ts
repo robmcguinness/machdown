@@ -16,6 +16,8 @@ import {
   MachdownConfigSchema,
   PairRequestSchema,
   PairResultSchema,
+  RecentClipsRequestSchema,
+  RecentClipsResultSchema,
   RepoInitRequestSchema,
   RepoInitResultSchema,
   SaveBookmarksRequestSchema,
@@ -137,6 +139,15 @@ export const contract = base.router({
       .meta(openapi({ method: 'GET', path: '/v1/clip', summary: 'Read one clip file' }))
       .input(z.object({ path: z.string().min(1) }))
       .output(ClipDocumentSchema),
+
+    /**
+     * The newest clips first, straight from the repository's frontmatter. Needs
+     * no search index, so the search page has something to show before a query.
+     */
+    recent: base
+      .meta(openapi({ method: 'GET', path: '/v1/clips/recent', summary: 'List recent clips' }))
+      .input(RecentClipsRequestSchema)
+      .output(RecentClipsResultSchema),
 
     /**
      * Batch-first: the popup sends one clip, the batch page sends many, and

@@ -4,7 +4,7 @@ import {
   bookmarksSetLocation,
   readmeRebuild,
 } from './bookmarks.ts';
-import { clipsLookup, clipsRead, clipsSave } from './clips.ts';
+import { clipsLookup, clipsRead, clipsRecent, clipsSave } from './clips.ts';
 import { configGet, configUpdate } from './config.ts';
 import { gitSync, systemListDirectory, systemOpen } from './system.ts';
 import { indexUpdate, searchQuery } from './search.ts';
@@ -18,7 +18,7 @@ import { repoInit } from './repo.ts';
 export const router = os.router({
   bookmarks: { append: bookmarksAppend, save: bookmarksSave, setLocation: bookmarksSetLocation },
   categories: { suggest: categoriesSuggest },
-  clips: { lookup: clipsLookup, read: clipsRead, save: clipsSave },
+  clips: { lookup: clipsLookup, read: clipsRead, recent: clipsRecent, save: clipsSave },
   config: { get: configGet, update: configUpdate },
   git: { sync: gitSync },
   health,

@@ -1,4 +1,11 @@
-import { loadClipIndex, lookupByUrl, readClip, readConfig, saveClip } from '#repo/store.ts';
+import {
+  listRecentClips,
+  loadClipIndex,
+  lookupByUrl,
+  readClip,
+  readConfig,
+  saveClip,
+} from '#repo/store.ts';
 import { authed, os, withRepoPath } from './base.ts';
 import { CommandError } from '#util/exec.ts';
 import { PathRejectedError } from '#repo/paths.ts';
@@ -30,6 +37,28 @@ export const clipsLookup = os.clips.lookup
       path: found.clip.relPath,
       title: frontmatter.title,
       updated: frontmatter.updated ?? found.clip.updated ?? found.clip.clipped,
+    };
+  });
+
+export const clipsRecent = os.clips.recent
+  .use(authed)
+  .use(withRepoPath)
+  .handler(async ({ context, input }) => {
+    const clips = await listRecentClips(context.repoPath, {
+      categories: input.categories,
+      limit: input.limit,
+    });
+    return {
+      results: clips.map((clip) => ({
+        categories: clip.categories,
+        clipped: clip.clipped,
+        kind: clip.kind,
+        relPath: clip.relPath,
+        site: clip.site,
+        title: clip.title,
+        updated: clip.updated,
+        url: clip.url,
+      })),
     };
   });
 

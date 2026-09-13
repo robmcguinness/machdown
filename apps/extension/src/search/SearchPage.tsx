@@ -22,7 +22,7 @@ import {
   InputGroupText,
 } from '#components/ui/input-group.tsx';
 import { RadioGroup, RadioGroupItem } from '#components/ui/radio-group.tsx';
-import type { SearchHit, SearchMode } from '@machdown/contract';
+import type { ClipSummary, SearchHit, SearchMode } from '@machdown/contract';
 import { describeFailure, toDaemonFailure } from '#common/daemonClient.ts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '#components/ui/button.tsx';
@@ -38,13 +38,47 @@ import { useDaemonStatus } from '#common/useDaemonStatus.ts';
 import { useSharedSettings } from '#common/useSharedSettings.ts';
 import { asHandler, runAsync } from '#lib/async.ts';
 
-type Preview = { hit: SearchHit; markdown: string };
+/** One row of the list, whether it came from the index or the repository. */
+type Row = {
+  id: string;
+  relPath: string;
+  snippet?: string;
+  title: string;
+  url?: string;
+};
+
+type Preview = { markdown: string; row: Row };
 
 type Results =
   | { state: 'idle' }
   | { state: 'searching' }
-  | { hits: SearchHit[]; query: string; state: 'done'; tookMs: number }
+  | { query: string; rows: Row[]; source: 'search'; state: 'done'; tookMs: number }
+  | { rows: Row[]; source: 'recent'; state: 'done' }
   | { message: string; state: 'error' };
+
+const RECENT_LIMIT = 30;
+
+const toRow = (hit: SearchHit): Row => ({
+  id: hit.docid,
+  relPath: hit.relPath,
+  snippet: hit.snippet,
+  title: hit.title,
+  url: hit.url,
+});
+
+/** Site and date stand in for the snippet: without a query there is nothing to excerpt. */
+const recentRow = (clip: ClipSummary): Row => {
+  const when = (clip.updated ?? clip.clipped).slice(0, 10);
+  return {
+    id: clip.relPath,
+    relPath: clip.relPath,
+    snippet: [clip.site, when, clip.kind === 'bookmark' ? 'bookmark' : null]
+      .filter(Boolean)
+      .join(' · '),
+    title: clip.title,
+    url: clip.url || undefined,
+  };
+};
 
 /**
  * `search` is BM25 and returns in well under a second. `query` runs an LLM
@@ -64,10 +98,10 @@ const WIDE = '(min-width: 80rem)';
 
 const GROUP_LABEL = 'font-heading text-xs tracking-wider text-muted-foreground uppercase';
 
-/** Opens the page a hit was clipped from, if it still has one. */
-const openSource = (hit: SearchHit) => {
-  if (hit.url) {
-    runAsync(() => chrome.tabs.create({ url: hit.url }));
+/** Opens the page a row was clipped from, if it still has one. */
+const openSource = (row: Row) => {
+  if (row.url) {
+    runAsync(() => chrome.tabs.create({ url: row.url }));
   }
 };
 
@@ -98,16 +132,41 @@ export const SearchPage = () => {
 
   const wide = useWidePreview();
   const qmdReady = status.state === 'ready' && status.health.qmd.available;
+  // The recent list reads frontmatter straight from the repository, so it
+  // needs a repository but not the search index.
+  const repoReady = status.state === 'ready' && status.health.repo !== null;
   const requestId = useRef(0);
 
   const runSearch = useCallback(
     async (text: string, searchMode: SearchMode, filters: string[]) => {
-      if (text.trim().length === 0) {
-        setResults({ state: 'idle' });
+      const id = ++requestId.current;
+      const trimmed = text.trim();
+
+      // An empty box shows what was saved last, newest first, rather than a
+      // blank page: the clip just made is the one most often wanted back.
+      if (trimmed.length === 0) {
+        if (!repoReady) {
+          setResults({ state: 'idle' });
+          return;
+        }
+        try {
+          const response = await client.clips.recent({
+            categories: filters.length > 0 ? filters : undefined,
+            limit: RECENT_LIMIT,
+          });
+          if (id !== requestId.current) {
+            return;
+          }
+          setResults({ rows: response.results.map(recentRow), source: 'recent', state: 'done' });
+        } catch (error) {
+          if (id !== requestId.current) {
+            return;
+          }
+          setResults({ message: describeFailure(toDaemonFailure(error)), state: 'error' });
+        }
         return;
       }
 
-      const id = ++requestId.current;
       setResults({ state: 'searching' });
 
       try {
@@ -115,15 +174,16 @@ export const SearchPage = () => {
           categories: filters.length > 0 ? filters : undefined,
           limit: 30,
           mode: searchMode,
-          q: text.trim(),
+          q: trimmed,
         });
         // A slower earlier request must not overwrite a newer result.
         if (id !== requestId.current) {
           return;
         }
         setResults({
-          hits: response.results,
-          query: text.trim(),
+          query: trimmed,
+          rows: response.results.map(toRow),
+          source: 'search',
           state: 'done',
           tookMs: response.tookMs,
         });
@@ -134,7 +194,7 @@ export const SearchPage = () => {
         setResults({ message: describeFailure(toDaemonFailure(error)), state: 'error' });
       }
     },
-    [client],
+    [client, repoReady],
   );
 
   // Debounce keystrokes, but react immediately to a mode or filter change.
@@ -153,10 +213,10 @@ export const SearchPage = () => {
   };
 
   const showPreview = useCallback(
-    async (hit: SearchHit) => {
+    async (row: Row) => {
       try {
-        const doc = await client.clips.read({ path: hit.relPath });
-        setPreview({ hit, markdown: doc.markdown });
+        const doc = await client.clips.read({ path: row.relPath });
+        setPreview({ markdown: doc.markdown, row });
         if (!window.matchMedia(WIDE).matches) {
           setDialogOpen(true);
         }
@@ -166,6 +226,18 @@ export const SearchPage = () => {
     },
     [client],
   );
+
+  // With a pane to fill, the newest clip opens by itself. Only once, and only
+  // where it needs no dialog: a popup nobody asked for is worse than a blank pane.
+  const newest = results.state === 'done' && results.source === 'recent' ? results.rows[0] : null;
+  const newestId = newest?.id ?? null;
+  useEffect(() => {
+    if (newest && wide && preview === null) {
+      runAsync(() => showPreview(newest));
+    }
+    // `newest` is looked up again by id so a re-render of the same list is not a re-fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newestId, wide, showPreview]);
 
   /** The result list and every state that replaces it. */
   const hitList = (
@@ -242,7 +314,7 @@ export const SearchPage = () => {
         </Empty>
       )}
 
-      {qmdReady && results.state === 'idle' && (
+      {qmdReady && results.state === 'idle' && !repoReady && (
         <Empty className='py-16'>
           <EmptyHeader>
             <EmptyMedia variant='icon'>
@@ -280,7 +352,7 @@ export const SearchPage = () => {
         </Empty>
       )}
 
-      {results.state === 'done' && results.hits.length === 0 && (
+      {results.state === 'done' && results.source === 'search' && results.rows.length === 0 && (
         <Empty className='py-16'>
           <EmptyHeader>
             <EmptyMedia variant='icon'>
@@ -295,39 +367,61 @@ export const SearchPage = () => {
         </Empty>
       )}
 
+      {results.state === 'done' && results.source === 'recent' && results.rows.length === 0 && (
+        <Empty className='py-16'>
+          <EmptyHeader>
+            <EmptyMedia variant='icon'>
+              <PackageOpen />
+            </EmptyMedia>
+            <EmptyTitle>Nothing saved yet</EmptyTitle>
+            <EmptyDescription>
+              {categories.length > 0
+                ? 'No clip carries the chosen categories. Clear the filter to see everything.'
+                : 'Clips you save from the popup will show up here, newest first.'}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      )}
+
+      {results.state === 'done' && results.source === 'recent' && results.rows.length > 0 && (
+        <div className='flex h-8 items-center border-b px-3.5'>
+          <span className={GROUP_LABEL}>Recently saved</span>
+        </div>
+      )}
+
       {results.state === 'done' &&
-        results.hits.map((hit) => (
+        results.rows.map((row) => (
           <div
             className={cn(
               'flex items-start gap-1 border-b',
-              preview?.hit.docid === hit.docid && 'bg-muted',
+              preview?.row.id === row.id && 'bg-muted',
             )}
-            key={hit.docid}
+            key={row.id}
           >
             <button
               className='flex min-w-0 flex-1 flex-col gap-1 px-3.5 py-3 text-left'
               type='button'
-              onClick={asHandler(() => showPreview(hit))}
+              onClick={asHandler(() => showPreview(row))}
             >
-              <span className='font-heading text-sm'>{hit.title}</span>
+              <span className='font-heading text-sm'>{row.title}</span>
               <span className='truncate font-mono text-xs text-muted-foreground'>
-                {hit.relPath}
+                {row.relPath}
               </span>
-              {hit.snippet && (
+              {row.snippet && (
                 <span className='line-clamp-2 text-xs whitespace-pre-line text-muted-foreground'>
-                  {hit.snippet}
+                  {row.snippet}
                 </span>
               )}
             </button>
 
             <Button
-              aria-label={`Open ${hit.title} at its source`}
+              aria-label={`Open ${row.title} at its source`}
               className='mt-2.5 mr-2 shrink-0'
-              disabled={!hit.url}
+              disabled={!row.url}
               size='icon-sm'
               title='Open the original page'
               variant='ghost'
-              onClick={() => openSource(hit)}
+              onClick={() => openSource(row)}
             >
               <ExternalLink />
             </Button>
@@ -403,10 +497,10 @@ export const SearchPage = () => {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
               />
-              {results.state === 'done' && (
+              {results.state === 'done' && results.source === 'search' && (
                 <InputGroupAddon align='inline-end'>
                   <InputGroupText className='font-heading text-xs'>
-                    {results.hits.length} · {results.tookMs} ms
+                    {results.rows.length} · {results.tookMs} ms
                   </InputGroupText>
                 </InputGroupAddon>
               )}
@@ -419,17 +513,17 @@ export const SearchPage = () => {
         <div className='hidden min-w-0 flex-col xl:flex'>
           <div className='flex h-10 shrink-0 items-center gap-2 border-b px-4'>
             <span className='truncate font-heading text-xs tracking-wider text-muted-foreground uppercase'>
-              {preview?.hit.relPath ?? 'Preview'}
+              {preview?.row.relPath ?? 'Preview'}
             </span>
             {preview && (
               <Button
                 aria-label='Open this document at its source'
                 className='ml-auto shrink-0'
-                disabled={!preview.hit.url}
+                disabled={!preview.row.url}
                 size='icon-sm'
                 title='Open the original page'
                 variant='ghost'
-                onClick={() => openSource(preview.hit)}
+                onClick={() => openSource(preview.row)}
               >
                 <ExternalLink />
               </Button>
@@ -459,7 +553,7 @@ export const SearchPage = () => {
       <Dialog open={dialogOpen && !wide} onOpenChange={setDialogOpen}>
         <DialogContent className='max-h-[80vh] sm:max-w-3xl'>
           <DialogTitle className='truncate pr-8 font-heading text-xs tracking-wider text-muted-foreground uppercase'>
-            {preview?.hit.relPath ?? 'Preview'}
+            {preview?.row.relPath ?? 'Preview'}
           </DialogTitle>
           {preview && (
             <ScrollArea className='max-h-[65vh]'>
