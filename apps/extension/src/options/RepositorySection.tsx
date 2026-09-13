@@ -566,7 +566,7 @@ export const RepositorySection = ({ daemon, settings, updateSettings }: Reposito
               })}
             </div>
 
-            <Field data-invalid={categoryError !== null}>
+            <Field data-disabled={!repo || busy !== null} data-invalid={categoryError !== null}>
               <div className='flex gap-2'>
                 <Input
                   aria-invalid={categoryError !== null}
@@ -625,7 +625,7 @@ export const RepositorySection = ({ daemon, settings, updateSettings }: Reposito
       <Card>
         <CardContent>
           <FieldGroup>
-            <Field orientation='horizontal'>
+            <Field data-disabled={!repo || busy !== null} orientation='horizontal'>
               <FieldContent>
                 <FieldLabel>Suggest categories</FieldLabel>
                 <FieldDescription>

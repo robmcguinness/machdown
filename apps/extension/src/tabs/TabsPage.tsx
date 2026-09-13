@@ -648,6 +648,7 @@ export const TabsPage = () => {
                             variant={origin === 'default' ? 'outline' : 'secondary'}
                           />
                         }
+                        nativeButton={false}
                       >
                         {origin === 'suggested' && <Sparkles aria-hidden />}
                         <span className='truncate'>{resolved.join(', ')}</span>

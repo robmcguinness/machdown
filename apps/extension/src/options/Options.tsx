@@ -21,7 +21,7 @@ import { DaemonStatus } from '#components/DaemonStatus.tsx';
 import { BookmarksSection } from '#components/BookmarksSection.tsx';
 import { RepositorySection } from './RepositorySection.tsx';
 import { Separator } from '#components/ui/separator.tsx';
-import { Slider } from '#components/ui/slider.tsx';
+import { Slider } from '#components/Slider.tsx';
 import { Switch } from '#components/ui/switch.tsx';
 import { toast } from 'sonner';
 import { useCallback } from 'react';
@@ -49,9 +49,6 @@ const FILENAME_PATTERNS = [
   '{site}-{slug}',
   '{date}-{site}-{slug}',
 ] as const satisfies readonly AppSettings['filenamePattern'][];
-
-const isSingleSliderValue = (value: number | readonly number[]): value is number =>
-  typeof value === 'number';
 
 /**
  * Every setting saves on change, so the confirmation is the same every time.
@@ -154,17 +151,8 @@ export const Options = () => {
                         max={1.2}
                         min={0.85}
                         step={0.05}
-                        value={[settings.scale]}
-                        onValueChange={(next: number | readonly number[]) => {
-                          // `Array.isArray` here widens `readonly number[]` to `any[]`
-                          // under the type-aware linter, the same tradeoff documented
-                          // in components/ui/slider.tsx — `isSingleSliderValue` keeps
-                          // the typeof check behind a named guard instead.
-                          const scale = isSingleSliderValue(next) ? next : next[0];
-                          if (scale !== undefined) {
-                            updateSettings({ scale });
-                          }
-                        }}
+                        value={settings.scale}
+                        onValueChange={(scale) => updateSettings({ scale })}
                       />
                       <span className='text-sm text-muted-foreground w-16 text-right'>
                         {Math.round(settings.scale * 100)}%
