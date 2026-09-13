@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '#components/ui/tooltip.
 import { Badge } from '#components/ui/badge.tsx';
 import { CATEGORY_FORMAT_HINT, findCategoryClash, isValidCategory } from '#common/categories.ts';
 import type { CategorySuggestion } from '@machdown/contract';
+import type { ComboboxRootChangeEventDetails } from '@base-ui/react/combobox';
 import { Skeleton } from '#components/ui/skeleton.tsx';
 import { Plus, Sparkles } from 'lucide-react';
 import { cn } from '#lib/utils.ts';
@@ -122,8 +123,15 @@ export const CategoryPicker = ({
     }
   };
 
-  const commit = (next: readonly string[]) => {
+  const commit = (next: readonly string[], details: ComboboxRootChangeEventDetails) => {
     if (disabled) {
+      return;
+    }
+    // Base UI treats Escape in a closed multi-select as "clear everything".
+    // Here Escape only dismisses the list; dropping every chip at once would
+    // silently disable the save button with nothing on screen to say why.
+    if (details.reason === 'escape-key') {
+      details.cancel();
       return;
     }
     // The combobox hands back whatever the user typed, so a brand-new name has
@@ -144,7 +152,7 @@ export const CategoryPicker = ({
   };
 
   return (
-    <div className={cn('space-y-2', className)}>
+    <div className={cn('flex flex-col gap-2', className)}>
       {(suggestionsState === 'loading' || unapplied.length > 0) && (
         <div className='flex flex-wrap items-center gap-1.5'>
           <span className='flex items-center gap-1 text-xs text-muted-foreground'>

@@ -5,6 +5,7 @@ import { Button } from '#components/ui/button.tsx';
 import { DirectoryPicker } from '#components/DirectoryPicker.tsx';
 import { FolderOpen } from 'lucide-react';
 import { Input } from '#components/ui/input.tsx';
+import { Spinner } from '#components/ui/spinner.tsx';
 import type { UseDaemonStatus } from '#common/useDaemonStatus.ts';
 import { asHandler } from '#lib/async.ts';
 import { toast } from 'sonner';
@@ -81,7 +82,7 @@ export const BookmarksSection = ({ daemon }: BookmarksSectionProps) => {
                 onChange={(event) => setFolder(event.target.value)}
               />
               <Button disabled={busy !== null} variant='outline' onClick={() => setBrowsing(true)}>
-                <FolderOpen aria-hidden />
+                <FolderOpen aria-hidden data-icon='inline-start' />
                 Browse…
               </Button>
               <Button
@@ -89,6 +90,7 @@ export const BookmarksSection = ({ daemon }: BookmarksSectionProps) => {
                 variant={current ? 'outline' : 'default'}
                 onClick={asHandler(handleUseFolder)}
               >
+                {busy?.kind === 'location' && <Spinner data-icon='inline-start' />}
                 {busy?.kind === 'location' ? 'Working…' : 'Use folder'}
               </Button>
             </div>

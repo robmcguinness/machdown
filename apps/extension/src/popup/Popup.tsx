@@ -20,6 +20,7 @@ import { DaemonStatus } from '#components/DaemonStatus.tsx';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -482,15 +483,19 @@ export const Popup = () => {
               <Ellipsis />
             </DropdownMenuTrigger>
             <DropdownMenuContent align='end' className='w-56'>
-              <DropdownMenuItem disabled={scope !== 'page'} onClick={asHandler(extractClip)}>
-                <RefreshCw />
-                <span>Re-extract</span>
-              </DropdownMenuItem>
+              <DropdownMenuGroup>
+                <DropdownMenuItem disabled={scope !== 'page'} onClick={asHandler(extractClip)}>
+                  <RefreshCw />
+                  <span>Re-extract</span>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={asHandler(() => openPage('src/tabs/index.html'))}>
-                <AppWindow />
-                <span>Save tabs in a full page…</span>
-              </DropdownMenuItem>
+              <DropdownMenuGroup>
+                <DropdownMenuItem onClick={asHandler(() => openPage('src/tabs/index.html'))}>
+                  <AppWindow />
+                  <span>Save tabs in a full page…</span>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -607,16 +612,22 @@ export const Popup = () => {
             {canSaveToRepo && (
               <div className='flex items-center gap-2 border-t px-4 py-2.5'>
                 <span className='shrink-0 text-xs text-muted-foreground'>Categories</span>
-                <CategoryPicker
-                  available={settings.categories}
-                  className='min-w-0 flex-1'
-                  disabled={busy}
-                  selected={activeCategories}
-                  suggestions={suggested?.suggestions}
-                  suggestionsState={suggestions.state}
-                  onChange={setCategories}
-                  onCreate={handleCreateCategory}
-                />
+                <div className='flex min-w-0 flex-1 flex-col gap-1'>
+                  <CategoryPicker
+                    available={settings.categories}
+                    disabled={busy}
+                    selected={activeCategories}
+                    suggestions={suggested?.suggestions}
+                    suggestionsState={suggestions.state}
+                    onChange={setCategories}
+                    onCreate={handleCreateCategory}
+                  />
+                  {ready && activeCategories.length === 0 && (
+                    <p className='text-xs text-muted-foreground'>
+                      Pick at least one category to save to the knowledge base.
+                    </p>
+                  )}
+                </div>
               </div>
             )}
           </div>

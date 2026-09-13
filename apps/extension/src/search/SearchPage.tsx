@@ -29,7 +29,8 @@ import { Button } from '#components/ui/button.tsx';
 import { Checkbox } from '#components/ui/checkbox.tsx';
 import { DaemonStatus } from '#components/DaemonStatus.tsx';
 import { Dialog, DialogContent, DialogTitle } from '#components/ui/dialog.tsx';
-import { FieldLabel } from '#components/ui/field.tsx';
+import { FieldGroup, FieldLabel, FieldLegend, FieldSet } from '#components/ui/field.tsx';
+import { Item, ItemContent, ItemDescription, ItemTitle } from '#components/ui/item.tsx';
 import { MarkdownPreview } from '#components/MarkdownPreview.tsx';
 import { ScrollArea } from '#components/ui/scroll-area.tsx';
 import { Spinner } from '#components/ui/spinner.tsx';
@@ -398,21 +399,24 @@ export const SearchPage = () => {
             )}
             key={row.id}
           >
-            <button
-              className='flex min-w-0 flex-1 flex-col gap-1 px-3.5 py-3 text-left'
-              type='button'
-              onClick={asHandler(() => showPreview(row))}
+            <Item
+              render={
+                <button
+                  aria-label={`Preview ${row.title}`}
+                  type='button'
+                  onClick={asHandler(() => showPreview(row))}
+                />
+              }
+              className='min-w-0 flex-1 text-left'
             >
-              <span className='font-heading text-sm'>{row.title}</span>
-              <span className='truncate font-mono text-xs text-muted-foreground'>
-                {row.relPath}
-              </span>
-              {row.snippet && (
-                <span className='line-clamp-2 text-xs whitespace-pre-line text-muted-foreground'>
-                  {row.snippet}
-                </span>
-              )}
-            </button>
+              <ItemContent>
+                <ItemTitle className='font-heading'>{row.title}</ItemTitle>
+                <ItemDescription className='line-clamp-1 font-mono'>{row.relPath}</ItemDescription>
+                {row.snippet && (
+                  <ItemDescription className='whitespace-pre-line'>{row.snippet}</ItemDescription>
+                )}
+              </ItemContent>
+            </Item>
 
             <Button
               aria-label={`Open ${row.title} at its source`}
@@ -441,8 +445,10 @@ export const SearchPage = () => {
 
       <div className='grid h-[calc(100vh-44px)] grid-cols-[240px_1fr] xl:grid-cols-[240px_1fr_460px]'>
         <div className='flex flex-col gap-5 overflow-y-auto border-r p-4'>
-          <div className='flex flex-col gap-2'>
-            <span className={GROUP_LABEL}>Mode</span>
+          <FieldSet>
+            <FieldLegend className={GROUP_LABEL} variant='label'>
+              Mode
+            </FieldLegend>
             <RadioGroup
               className='gap-2'
               disabled={!qmdReady}
@@ -460,12 +466,14 @@ export const SearchPage = () => {
                 </FieldLabel>
               ))}
             </RadioGroup>
-          </div>
+          </FieldSet>
 
           {settings.categories.length > 0 && (
-            <div className='flex min-h-0 flex-col gap-2'>
-              <span className={GROUP_LABEL}>Categories</span>
-              <div className='flex flex-col gap-2'>
+            <FieldSet className='min-h-0'>
+              <FieldLegend className={GROUP_LABEL} variant='label'>
+                Categories
+              </FieldLegend>
+              <FieldGroup data-slot='checkbox-group'>
                 {settings.categories.map((category) => (
                   <FieldLabel className='font-normal' key={category}>
                     <Checkbox
@@ -476,8 +484,8 @@ export const SearchPage = () => {
                     {category}
                   </FieldLabel>
                 ))}
-              </div>
-            </div>
+              </FieldGroup>
+            </FieldSet>
           )}
         </div>
 

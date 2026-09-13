@@ -10,6 +10,7 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -105,7 +106,7 @@ export const Options = () => {
             <DaemonStatus status={daemon.status} />
           </div>
 
-          <TabsContent className='space-y-6' value='repository'>
+          <TabsContent className='flex flex-col gap-6' value='repository'>
             <RepositorySection
               daemon={daemon}
               settings={settings}
@@ -116,7 +117,7 @@ export const Options = () => {
             {daemon.status.state === 'ready' && <BookmarksSection daemon={daemon} />}
           </TabsContent>
 
-          <TabsContent className='space-y-6' value='appearance'>
+          <TabsContent className='flex flex-col gap-6' value='appearance'>
             <Card>
               <CardContent>
                 <FieldGroup>
@@ -134,9 +135,11 @@ export const Options = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value='system'>System</SelectItem>
-                        <SelectItem value='light'>Light</SelectItem>
-                        <SelectItem value='dark'>Dark</SelectItem>
+                        <SelectGroup>
+                          <SelectItem value='system'>System</SelectItem>
+                          <SelectItem value='light'>Light</SelectItem>
+                          <SelectItem value='dark'>Dark</SelectItem>
+                        </SelectGroup>
                       </SelectContent>
                     </Select>
                     <FieldDescription>Follows your OS theme when set to system.</FieldDescription>
@@ -173,7 +176,7 @@ export const Options = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent className='space-y-6' value='formatting'>
+          <TabsContent className='flex flex-col gap-6' value='formatting'>
             <Card>
               <CardContent>
                 <FieldGroup>
@@ -191,8 +194,10 @@ export const Options = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value='atx'>ATX (# Heading)</SelectItem>
-                        <SelectItem value='setext'>Setext (underline)</SelectItem>
+                        <SelectGroup>
+                          <SelectItem value='atx'>ATX (# Heading)</SelectItem>
+                          <SelectItem value='setext'>Setext (underline)</SelectItem>
+                        </SelectGroup>
                       </SelectContent>
                     </Select>
                   </Field>
@@ -211,9 +216,11 @@ export const Options = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value='-'>Dash (-)</SelectItem>
-                        <SelectItem value='*'>Asterisk (*)</SelectItem>
-                        <SelectItem value='+'>Plus (+)</SelectItem>
+                        <SelectGroup>
+                          <SelectItem value='-'>Dash (-)</SelectItem>
+                          <SelectItem value='*'>Asterisk (*)</SelectItem>
+                          <SelectItem value='+'>Plus (+)</SelectItem>
+                        </SelectGroup>
                       </SelectContent>
                     </Select>
                   </Field>
@@ -232,8 +239,10 @@ export const Options = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value='inline'>Inline [text](url)</SelectItem>
-                        <SelectItem value='reference'>Reference [text][1]</SelectItem>
+                        <SelectGroup>
+                          <SelectItem value='inline'>Inline [text](url)</SelectItem>
+                          <SelectItem value='reference'>Reference [text][1]</SelectItem>
+                        </SelectGroup>
                       </SelectContent>
                     </Select>
                   </Field>
@@ -252,8 +261,10 @@ export const Options = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value='fenced'>Fenced (```)</SelectItem>
-                        <SelectItem value='indented'>Indented (4 spaces)</SelectItem>
+                        <SelectGroup>
+                          <SelectItem value='fenced'>Fenced (```)</SelectItem>
+                          <SelectItem value='indented'>Indented (4 spaces)</SelectItem>
+                        </SelectGroup>
                       </SelectContent>
                     </Select>
                   </Field>
@@ -272,8 +283,10 @@ export const Options = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value='```'>Backticks (```)</SelectItem>
-                        <SelectItem value='~~~'>Tildes (~~~)</SelectItem>
+                        <SelectGroup>
+                          <SelectItem value='```'>Backticks (```)</SelectItem>
+                          <SelectItem value='~~~'>Tildes (~~~)</SelectItem>
+                        </SelectGroup>
                       </SelectContent>
                     </Select>
                   </Field>
@@ -292,9 +305,11 @@ export const Options = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value='---'>Dashes (---)</SelectItem>
-                        <SelectItem value='***'>Asterisks (***)</SelectItem>
-                        <SelectItem value='___'>Underscores (___)</SelectItem>
+                        <SelectGroup>
+                          <SelectItem value='---'>Dashes (---)</SelectItem>
+                          <SelectItem value='***'>Asterisks (***)</SelectItem>
+                          <SelectItem value='___'>Underscores (___)</SelectItem>
+                        </SelectGroup>
                       </SelectContent>
                     </Select>
                   </Field>
@@ -303,7 +318,7 @@ export const Options = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent className='space-y-6' value='behavior'>
+          <TabsContent className='flex flex-col gap-6' value='behavior'>
             <Card>
               <CardContent>
                 <FieldGroup>
@@ -366,14 +381,16 @@ export const Options = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value='{slug}'>Title only (my-article)</SelectItem>
-                        <SelectItem value='{date}-{slug}'>
-                          Date + title (2026-03-21-my-article)
-                        </SelectItem>
-                        <SelectItem value='{site}-{slug}'>
-                          Site + title (example-com-my-article)
-                        </SelectItem>
-                        <SelectItem value='{date}-{site}-{slug}'>Date + site + title</SelectItem>
+                        <SelectGroup>
+                          <SelectItem value='{slug}'>Title only (my-article)</SelectItem>
+                          <SelectItem value='{date}-{slug}'>
+                            Date + title (2026-03-21-my-article)
+                          </SelectItem>
+                          <SelectItem value='{site}-{slug}'>
+                            Site + title (example-com-my-article)
+                          </SelectItem>
+                          <SelectItem value='{date}-{site}-{slug}'>Date + site + title</SelectItem>
+                        </SelectGroup>
                       </SelectContent>
                     </Select>
                     <FieldDescription>Pattern for saved markdown filenames.</FieldDescription>

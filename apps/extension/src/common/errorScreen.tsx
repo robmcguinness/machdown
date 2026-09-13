@@ -1,4 +1,13 @@
-import { Icon } from '#lib/icon/component.tsx';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '#components/ui/empty.tsx';
+import { OctagonX, RefreshCw } from 'lucide-react';
+import { Button } from '#components/ui/button.tsx';
 
 const isString = (value: unknown): value is string => typeof value === 'string';
 
@@ -12,12 +21,20 @@ export const ErrorScreen = ({
   const message = error instanceof Error ? error.message : isString(error) ? error : String(error);
 
   return (
-    <div className='h-screen place-content-center text-center w-full place-items-center flex flex-col'>
-      <div className='font-semibold'>Something went wrong</div>
-      <div className='text-sm'>
-        <span className='italic'>{message}</span>
-      </div>
-      <Icon color='red-500' name='reload' onClick={() => resetErrorBoundary()} />
-    </div>
+    <Empty className='h-screen'>
+      <EmptyHeader>
+        <EmptyMedia variant='icon'>
+          <OctagonX />
+        </EmptyMedia>
+        <EmptyTitle>Something went wrong</EmptyTitle>
+        <EmptyDescription>{message}</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <Button variant='outline' onClick={resetErrorBoundary}>
+          <RefreshCw data-icon='inline-start' />
+          Try again
+        </Button>
+      </EmptyContent>
+    </Empty>
   );
 };

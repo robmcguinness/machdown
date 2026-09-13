@@ -24,6 +24,7 @@ import { CategoryPicker } from '#components/CategoryPicker.tsx';
 import { Checkbox } from '#components/ui/checkbox.tsx';
 import { DaemonStatus } from '#components/DaemonStatus.tsx';
 import { Sparkles } from 'lucide-react';
+import { Spinner } from '#components/ui/spinner.tsx';
 import { cn } from '#lib/utils.ts';
 import { useCategorySuggestions } from '#common/useCategorySuggestions.ts';
 import { useDaemonStatus } from '#common/useDaemonStatus.ts';
@@ -551,6 +552,7 @@ export const TabsPage = () => {
               className='w-full'
               onClick={asHandler(mode === 'bookmark' ? handleBookmarkAll : handleExport)}
             >
+              {isExporting && <Spinner data-icon='inline-start' />}
               {exportState.phase === 'clipping'
                 ? `Clipping ${exportState.current}/${exportState.total}...`
                 : exportState.phase === 'compressing'
@@ -647,12 +649,10 @@ export const TabsPage = () => {
                           />
                         }
                       >
-                        {origin === 'suggested' && (
-                          <Sparkles aria-hidden className='size-3 shrink-0' />
-                        )}
+                        {origin === 'suggested' && <Sparkles aria-hidden />}
                         <span className='truncate'>{resolved.join(', ')}</span>
                       </PopoverTrigger>
-                      <PopoverContent className='w-72 space-y-2'>
+                      <PopoverContent className='flex w-72 flex-col gap-2'>
                         <CategoryPicker
                           available={settings.categories}
                           disabled={isExporting}

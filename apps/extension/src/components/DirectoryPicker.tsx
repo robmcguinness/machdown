@@ -21,7 +21,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '#components/ui/button.tsx';
 import type { DirectoryListResult } from '@machdown/contract';
 import { Input } from '#components/ui/input.tsx';
-import { Label } from '#components/ui/label.tsx';
+import { Field, FieldLabel } from '#components/ui/field.tsx';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '#components/ui/input-group.tsx';
 import { ScrollArea } from '#components/ui/scroll-area.tsx';
 import { Skeleton } from '#components/ui/skeleton.tsx';
 import { cn } from '#lib/utils.ts';
@@ -133,26 +134,24 @@ export const DirectoryPicker = ({
           </Breadcrumb>
         )}
 
-        <div className='relative'>
-          <Search
-            aria-hidden
-            className='pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground'
-          />
-          <Input
+        <InputGroup>
+          <InputGroupAddon>
+            <Search />
+          </InputGroupAddon>
+          <InputGroupInput
             aria-label='Filter folders'
-            className='pl-8'
             placeholder='Filter folders…'
             value={filter}
             onChange={(event) => {
               setFilter(event.target.value);
             }}
           />
-        </div>
+        </InputGroup>
 
         <ScrollArea className='h-56 rounded-md border'>
           <div className='p-1'>
             {loading && (
-              <div className='space-y-1 p-1'>
+              <div className='flex flex-col gap-1 p-1'>
                 <Skeleton className='h-7 w-full' />
                 <Skeleton className='h-7 w-full' />
                 <Skeleton className='h-7 w-2/3' />
@@ -241,10 +240,8 @@ export const DirectoryPicker = ({
         )}
 
         {path !== '' && (
-          <div className='space-y-1.5'>
-            <Label className='text-xs' htmlFor='new-folder'>
-              New folder (optional)
-            </Label>
+          <Field>
+            <FieldLabel htmlFor='new-folder'>New folder (optional)</FieldLabel>
             <Input
               id='new-folder'
               placeholder='knowledge-base'
@@ -253,7 +250,7 @@ export const DirectoryPicker = ({
                 setNewFolder(event.target.value);
               }}
             />
-          </div>
+          </Field>
         )}
 
         <p className='truncate font-mono text-xs text-muted-foreground'>{resolved || '—'}</p>

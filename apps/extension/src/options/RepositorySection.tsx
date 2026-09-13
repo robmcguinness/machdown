@@ -1,6 +1,8 @@
 import type { AppSettings } from '#common/appTypes.ts';
 import { Alert, AlertDescription, AlertTitle } from '#components/ui/alert.tsx';
-import { Card, CardContent } from '#components/ui/card.tsx';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#components/ui/card.tsx';
+import { ButtonGroup } from '#components/ui/button-group.tsx';
+import { Spinner } from '#components/ui/spinner.tsx';
 import {
   Field,
   FieldContent,
@@ -12,6 +14,7 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -319,6 +322,7 @@ export const RepositorySection = ({ daemon, settings, updateSettings }: Reposito
                       disabled={pairingCode.trim().length < 4 || busy !== null}
                       onClick={asHandler(handlePair)}
                     >
+                      {busy?.kind === 'pairing' && <Spinner data-icon='inline-start' />}
                       {busy?.kind === 'pairing' ? 'Pairing…' : 'Pair'}
                     </Button>
                   </div>
@@ -391,7 +395,7 @@ export const RepositorySection = ({ daemon, settings, updateSettings }: Reposito
                       variant='outline'
                       onClick={() => setBrowsing(true)}
                     >
-                      <FolderOpen aria-hidden />
+                      <FolderOpen aria-hidden data-icon='inline-start' />
                       Browse…
                     </Button>
                     <Button
@@ -399,6 +403,7 @@ export const RepositorySection = ({ daemon, settings, updateSettings }: Reposito
                       variant={repo ? 'outline' : 'default'}
                       onClick={asHandler(handleInit)}
                     >
+                      {busy?.kind === 'init' && <Spinner data-icon='inline-start' />}
                       {busy?.kind === 'init' ? 'Working…' : repo ? 'Change' : 'Initialize'}
                     </Button>
                   </div>
@@ -438,6 +443,7 @@ export const RepositorySection = ({ daemon, settings, updateSettings }: Reposito
                     variant='outline'
                     onClick={asHandler(handleSync)}
                   >
+                    {busy?.kind === 'sync' && <Spinner data-icon='inline-start' />}
                     {busy?.kind === 'sync' ? 'Syncing…' : 'Sync now'}
                   </Button>
                 </Field>
@@ -448,16 +454,15 @@ export const RepositorySection = ({ daemon, settings, updateSettings }: Reposito
       </Card>
 
       <Card>
+        <CardHeader>
+          <CardTitle>Categories</CardTitle>
+          <CardDescription>
+            Stored in the repository, so they travel with a clone.
+            {!repo && ' Connect a repository to edit them.'}
+          </CardDescription>
+        </CardHeader>
         <CardContent>
           <FieldGroup>
-            <Field>
-              <FieldLabel>Categories</FieldLabel>
-              <FieldDescription>
-                Stored in the repository, so they travel with a clone.
-                {!repo && ' Connect a repository to edit them.'}
-              </FieldDescription>
-            </Field>
-
             <Alert variant='destructive'>
               <TriangleAlert />
               <AlertTitle>Editing this list does not re-file existing clips</AlertTitle>
@@ -511,14 +516,14 @@ export const RepositorySection = ({ daemon, settings, updateSettings }: Reposito
                 const armed = pendingRemoval === category;
                 const isDefault = category === settings.defaultCategory;
 
-                // Two sibling buttons in a bordered row rather than buttons
+                // Two sibling buttons in a bordered group rather than buttons
                 // nested inside a Badge: a badge is not a button, and nesting
                 // interactive elements inside one made the two hit targets
                 // fight over the same click.
                 return (
-                  <div
+                  <ButtonGroup
                     className={cn(
-                      'inline-flex items-center rounded-lg border',
+                      'border',
                       armed
                         ? 'border-destructive/40 bg-destructive/10'
                         : isDefault
@@ -556,7 +561,7 @@ export const RepositorySection = ({ daemon, settings, updateSettings }: Reposito
                         {armed ? 'Remove?' : <X aria-hidden />}
                       </Button>
                     )}
-                  </div>
+                  </ButtonGroup>
                 );
               })}
             </div>
@@ -603,11 +608,13 @@ export const RepositorySection = ({ daemon, settings, updateSettings }: Reposito
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {settings.categories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
+                  <SelectGroup>
+                    {settings.categories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 </SelectContent>
               </Select>
             </Field>
@@ -649,6 +656,7 @@ export const RepositorySection = ({ daemon, settings, updateSettings }: Reposito
                 variant='outline'
                 onClick={asHandler(handleEmbed)}
               >
+                {busy?.kind === 'embed' && <Spinner data-icon='inline-start' />}
                 {busy?.kind === 'embed' ? 'Building…' : 'Build embeddings'}
               </Button>
             </Field>
