@@ -67,7 +67,7 @@ type Destination = 'repo' | 'zip';
 type Mode = 'clip' | 'bookmark';
 
 /** The option-group heading, shared with the search page's filter panel. */
-const GROUP_LABEL = 'font-heading text-[10.5px] tracking-wider text-muted-foreground uppercase';
+const GROUP_LABEL = 'font-heading text-xs tracking-wider text-muted-foreground uppercase';
 
 /** Display-only site name for the suggestion request. */
 const hostOf = (url: string): string => {
@@ -206,9 +206,12 @@ export const TabsPage = () => {
       }
       const next = [...settings.categories, name];
       setSettings({ categories: next });
-      void client.config.update({ categories: next }).catch(() => {
-        // Frontmatter still carries it; only the curated list lags behind.
-      });
+      runAsync(
+        () => client.config.update({ categories: next }),
+        () => {
+          // Frontmatter still carries it; only the curated list lags behind.
+        },
+      );
     },
     [settings.categories, setSettings, client],
   );
@@ -606,7 +609,7 @@ export const TabsPage = () => {
                         ? 'Save to repository'
                         : 'Export ZIP'}
             </Button>
-            <span className='text-center text-[11px] text-muted-foreground'>
+            <span className='text-center text-xs text-muted-foreground'>
               {selectedCount} of {clippableCount} selected
             </span>
           </div>
@@ -614,7 +617,7 @@ export const TabsPage = () => {
 
         <div className='flex min-w-0 flex-col'>
           <div className='flex h-10 shrink-0 items-center gap-3 border-b px-4'>
-            <span className='font-heading text-[11px] tracking-wider text-muted-foreground uppercase'>
+            <span className='font-heading text-xs tracking-wider text-muted-foreground uppercase'>
               {tabs.length} tabs open
             </span>
             <Button
@@ -662,7 +665,7 @@ export const TabsPage = () => {
                   )}
                   <div className={cn('min-w-0 flex-1', !tab.clippable && 'opacity-40')}>
                     <span className='block truncate text-xs'>{tab.title}</span>
-                    <span className='block truncate font-mono text-[11px] text-muted-foreground'>
+                    <span className='block truncate font-mono text-xs text-muted-foreground'>
                       {hostOf(tab.url) || tab.url}
                     </span>
                   </div>
@@ -737,14 +740,14 @@ export const TabsPage = () => {
             <div className='max-h-56 shrink-0 overflow-y-auto border-t px-4 py-3'>
               {exportState.errors.length > 0 && (
                 <>
-                  <p className='m-0 mb-1.5 font-heading text-[11px] tracking-wider text-destructive uppercase'>
+                  <p className='m-0 mb-1.5 font-heading text-xs tracking-wider text-destructive uppercase'>
                     {mode === 'bookmark'
                       ? 'The bookmarks could not be saved'
                       : `${exportState.errors.length} tab${exportState.errors.length > 1 ? 's' : ''} failed to clip`}
                   </p>
                   <ul className='m-0 flex list-none flex-col gap-1 p-0'>
                     {exportState.errors.map((err) => (
-                      <li className='text-[11px] text-muted-foreground' key={err}>
+                      <li className='text-xs text-muted-foreground' key={err}>
                         {err}
                       </li>
                     ))}
@@ -754,7 +757,7 @@ export const TabsPage = () => {
 
               {exportState.saved && (
                 <>
-                  <p className='m-0 mb-1.5 font-heading text-[11px] tracking-wider text-muted-foreground uppercase'>
+                  <p className='m-0 mb-1.5 font-heading text-xs tracking-wider text-muted-foreground uppercase'>
                     {exportState.saved.commit
                       ? `Committed: ${exportState.saved.commit.message}`
                       : 'Nothing changed'}
@@ -762,7 +765,7 @@ export const TabsPage = () => {
                   <ul className='m-0 flex list-none flex-col gap-1 p-0'>
                     {exportState.saved.results.map((result) =>
                       result.status === 'failed' ? null : (
-                        <li className='text-[11px] text-muted-foreground' key={result.url}>
+                        <li className='text-xs text-muted-foreground' key={result.url}>
                           <span
                             className={cn(
                               'mr-2 uppercase',
@@ -788,14 +791,14 @@ export const TabsPage = () => {
               )}
 
               {exportState.bookmarked && (
-                <p className='m-0 text-[11px] text-muted-foreground'>
+                <p className='m-0 text-xs text-muted-foreground'>
                   {exportState.bookmarked.added} added, {exportState.bookmarked.skipped} already
                   there · {exportState.bookmarked.path}
                 </p>
               )}
 
               {exportState.errors.length === 0 && !exportState.saved && !exportState.bookmarked && (
-                <p className='m-0 text-[11px] text-muted-foreground'>
+                <p className='m-0 text-xs text-muted-foreground'>
                   Export complete. You can close this tab.
                 </p>
               )}

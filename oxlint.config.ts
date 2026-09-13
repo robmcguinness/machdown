@@ -10,6 +10,20 @@ export default defineConfig({
   // wrappers under src/components. tsc still checks these files.
   ignorePatterns: ['apps/extension/src/components/ui/**'],
   overrides: [
+    {
+      // Layout track sizes (`grid-cols-[240px_1fr]`, `flex-[1.4]`) are precise
+      // sizing like h-/w-, which the shared rule already allows. The option
+      // replaces the default list, so the defaults are repeated here.
+      files: ['apps/extension/**'],
+      rules: {
+        'rm3-tailwind/no-arbitrary-values': [
+          'error',
+          {
+            allow: ['h-', 'w-', 'min-h-', 'max-h-', 'min-w-', 'max-w-', 'grid-cols-', 'flex-'],
+          },
+        ],
+      },
+    },
     // React and react-doctor are on via rm3Config; the extension renders in
     // the browser only, so no `ssr` bucket.
     {

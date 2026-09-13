@@ -218,14 +218,10 @@ export const DirectoryPicker = ({
                     <ItemTitle className='truncate'>{entry.name}</ItemTitle>
                   </ItemContent>
                   {entry.isMachdownRepo && (
-                    <ItemActions className='text-[10px] text-muted-foreground'>
-                      machdown
-                    </ItemActions>
+                    <ItemActions className='text-xs text-muted-foreground'>machdown</ItemActions>
                   )}
                   {!entry.readable && (
-                    <ItemActions className='text-[10px] text-muted-foreground'>
-                      no access
-                    </ItemActions>
+                    <ItemActions className='text-xs text-muted-foreground'>no access</ItemActions>
                   )}
                 </Item>
               ))}
@@ -239,7 +235,7 @@ export const DirectoryPicker = ({
         </ScrollArea>
 
         {listing?.truncated && (
-          <p className='text-[11px] text-muted-foreground'>
+          <p className='text-xs text-muted-foreground'>
             Showing the first 500 folders — type to narrow the list.
           </p>
         )}

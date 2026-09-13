@@ -205,18 +205,19 @@ export const Popup = () => {
     }
 
     let cancelled = false;
-    client.clips
-      .lookup({ url: lookupUrl })
-      .then((result) => {
+    runAsync(async () => {
+      try {
+        const result = await client.clips.lookup({ url: lookupUrl });
         if (!cancelled) {
           setLookup({ result: result.exists ? result : null, url: lookupUrl });
         }
-      })
-      .catch(() => {
+      } catch {
+        // A failed lookup reads as "not clipped"; the next URL change retries.
         if (!cancelled) {
           setLookup({ result: null, url: lookupUrl });
         }
-      });
+      }
+    });
 
     return () => {
       cancelled = true;
@@ -298,10 +299,13 @@ export const Popup = () => {
       }
       const next = [...settings.categories, name];
       setSettings({ categories: next });
-      void client.config.update({ categories: next }).catch(() => {
-        // The clip still saves with the category in its frontmatter; only the
-        // curated list falls behind, and the next poll reconciles it.
-      });
+      runAsync(
+        () => client.config.update({ categories: next }),
+        () => {
+          // The clip still saves with the category in its frontmatter; only the
+          // curated list falls behind, and the next poll reconciles it.
+        },
+      );
     },
     [settings.categories, setSettings, client],
   );
@@ -571,7 +575,7 @@ export const Popup = () => {
             onClick={asHandler(() => chrome.runtime.openOptionsPage())}
           />
           {state.status === 'done' && (
-            <span className='ml-auto shrink-0 font-heading text-[11px] text-muted-foreground'>
+            <span className='ml-auto shrink-0 font-heading text-xs text-muted-foreground'>
               {toHostname(state.clip.url)}
             </span>
           )}
@@ -588,7 +592,7 @@ export const Popup = () => {
           <Skeleton className='h-4 w-3/4' />
         )}
 
-        <div className='flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-muted-foreground'>
+        <div className='flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground'>
           {state.status === 'done' ? (
             <>
               <span>{state.clip.mode === 'selection' ? 'Selection' : 'Article'}</span>
@@ -607,13 +611,13 @@ export const Popup = () => {
       {state.status === 'done' && (
         <div className='mt-2 flex flex-col border-t'>
           <div className='flex items-center gap-2 px-4 pt-2.5'>
-            <span className='font-heading text-[10.5px] tracking-wider text-muted-foreground uppercase'>
+            <span className='font-heading text-xs tracking-wider text-muted-foreground uppercase'>
               Summary
             </span>
 
             {existing && (
               <span
-                className='ml-auto shrink-0 font-heading text-[11px] text-muted-foreground'
+                className='ml-auto shrink-0 font-heading text-xs text-muted-foreground'
                 title={existing.path}
               >
                 {`In repo${existing.updated ? ` · ${existing.updated.slice(0, 10)}` : ''}`}
@@ -671,7 +675,7 @@ export const Popup = () => {
 
       {repoMode && (
         <div className='flex items-center gap-2 border-t px-4 py-2.5'>
-          <span className='shrink-0 text-[11px] text-muted-foreground'>Categories</span>
+          <span className='shrink-0 text-xs text-muted-foreground'>Categories</span>
           <CategoryPicker
             available={settings.categories}
             className='min-w-0 flex-1'

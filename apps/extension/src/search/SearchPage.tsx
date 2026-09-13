@@ -22,7 +22,7 @@ import {
   InputGroupText,
 } from '#components/ui/input-group.tsx';
 import { RadioGroup, RadioGroupItem } from '#components/ui/radio-group.tsx';
-import { type SearchHit, type SearchMode } from '@machdown/contract';
+import type { SearchHit, SearchMode } from '@machdown/contract';
 import { describeFailure, toDaemonFailure } from '#common/daemonClient.ts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '#components/ui/button.tsx';
@@ -62,7 +62,7 @@ const DEBOUNCE_MS = 350;
 /** Tailwind's `xl`, so the preview pane and the preview dialog never both show. */
 const WIDE = '(min-width: 80rem)';
 
-const GROUP_LABEL = 'font-heading text-[10.5px] tracking-wider text-muted-foreground uppercase';
+const GROUP_LABEL = 'font-heading text-xs tracking-wider text-muted-foreground uppercase';
 
 /** Opens the page a hit was clipped from, if it still has one. */
 const openSource = (hit: SearchHit) => {
@@ -310,7 +310,7 @@ export const SearchPage = () => {
               onClick={asHandler(() => showPreview(hit))}
             >
               <span className='font-heading text-sm'>{hit.title}</span>
-              <span className='truncate font-mono text-[11px] text-muted-foreground'>
+              <span className='truncate font-mono text-xs text-muted-foreground'>
                 {hit.relPath}
               </span>
               {hit.snippet && (
@@ -405,7 +405,7 @@ export const SearchPage = () => {
               />
               {results.state === 'done' && (
                 <InputGroupAddon align='inline-end'>
-                  <InputGroupText className='font-heading text-[11px]'>
+                  <InputGroupText className='font-heading text-xs'>
                     {results.hits.length} · {results.tookMs} ms
                   </InputGroupText>
                 </InputGroupAddon>
@@ -418,7 +418,7 @@ export const SearchPage = () => {
 
         <div className='hidden min-w-0 flex-col xl:flex'>
           <div className='flex h-10 shrink-0 items-center gap-2 border-b px-4'>
-            <span className='truncate font-heading text-[11px] tracking-wider text-muted-foreground uppercase'>
+            <span className='truncate font-heading text-xs tracking-wider text-muted-foreground uppercase'>
               {preview?.hit.relPath ?? 'Preview'}
             </span>
             {preview && (
@@ -458,7 +458,7 @@ export const SearchPage = () => {
       {/* Below `xl` the third pane is gone, so the preview needs its own surface. */}
       <Dialog open={dialogOpen && !wide} onOpenChange={setDialogOpen}>
         <DialogContent className='max-h-[80vh] sm:max-w-3xl'>
-          <DialogTitle className='truncate pr-8 font-heading text-[11px] tracking-wider text-muted-foreground uppercase'>
+          <DialogTitle className='truncate pr-8 font-heading text-xs tracking-wider text-muted-foreground uppercase'>
             {preview?.hit.relPath ?? 'Preview'}
           </DialogTitle>
           {preview && (

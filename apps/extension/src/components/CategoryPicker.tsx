@@ -147,7 +147,7 @@ export const CategoryPicker = ({
     <div className={cn('space-y-2', className)}>
       {(suggestionsState === 'loading' || unapplied.length > 0) && (
         <div className='flex flex-wrap items-center gap-1.5'>
-          <span className='flex items-center gap-1 text-[11px] text-muted-foreground'>
+          <span className='flex items-center gap-1 text-xs text-muted-foreground'>
             <Sparkles aria-hidden className='size-3' />
             Suggested
           </span>
@@ -176,7 +176,7 @@ export const CategoryPicker = ({
                 >
                   {suggestion.category}
                   {suggestion.isNew && (
-                    <span className='ml-1 text-[10px] text-muted-foreground'>new</span>
+                    <span className='ml-1 text-xs text-muted-foreground'>new</span>
                   )}
                 </TooltipTrigger>
                 <TooltipContent>
@@ -239,7 +239,7 @@ export const CategoryPicker = ({
       </Combobox>
 
       {suggestionsState === 'degraded' && (
-        <p className='text-[11px] text-muted-foreground'>
+        <p className='text-xs text-muted-foreground'>
           Suggestions are limited — build the search index in settings for better matches.
         </p>
       )}
