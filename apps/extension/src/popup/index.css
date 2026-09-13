@@ -1,12 +1,13 @@
 @import '../../styles.css';
 
-html {
+/* Every page shares one stylesheet, so these rules carry the page class. */
+html.popup {
   width: 400px;
 }
 
 /* No font-family here: the shell must inherit IBM Plex Sans from the theme,
    or the system font would silently win over it. */
-body {
+html.popup body {
   margin: 0;
   padding: 0;
   font-size: 14px;

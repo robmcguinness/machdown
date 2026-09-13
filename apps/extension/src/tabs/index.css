@@ -1,9 +1,10 @@
 @import '../../styles.css';
 
 /* The two-pane shell measures itself against the window, so the chain from the
-   viewport down to the React root must carry a real height. */
-html,
-body {
+   viewport down to the React root must carry a real height. Every page shares
+   one stylesheet, so the rule carries the page class. */
+html.tabs,
+html.tabs body {
   height: 100%;
   margin: 0;
 }

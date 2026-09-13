@@ -5,6 +5,8 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   appType: 'mpa',
   build: {
+    // One stylesheet serves every page, so html/body rules in a page's index.css
+    // must be scoped by the class on that page's <html> element.
     cssCodeSplit: false,
     emptyOutDir: false,
     modulePreload: false,
