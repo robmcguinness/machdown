@@ -49,14 +49,12 @@ export type DaemonFailure =
   | { code: string; kind: 'error'; message: string };
 
 /**
- * Wordings for "the connection never happened", which differ per runtime:
- * Chrome throws `TypeError: Failed to fetch`, Node throws `TypeError: fetch
- * failed`, Safari throws `Load failed`. Timeouts land here too — an
+ * Wordings for "the connection never happened": Chrome throws `TypeError:
+ * Failed to fetch`, Safari `Load failed`. Timeouts land here too — an
  * unreachable daemon and a hung one are the same thing to the UI.
  */
 const OFFLINE_MARKERS = [
   'failed to fetch',
-  'fetch failed',
   'load failed',
   'networkerror',
   'network error',
@@ -64,41 +62,8 @@ const OFFLINE_MARKERS = [
   'the operation was aborted',
 ];
 
-/** Connection-level errno codes, which arrive on `error.cause` under Node. */
-const OFFLINE_CODES = new Set([
-  'ECONNREFUSED',
-  'ECONNRESET',
-  'EHOSTUNREACH',
-  'ENETUNREACH',
-  'ENOTFOUND',
-  'ETIMEDOUT',
-  'UND_ERR_CONNECT_TIMEOUT',
-]);
-
-/** `lib.es2022.error.d.ts` isn't in this project's ES2021 target, so `.cause`
- * is not a declared property of `Error` here — checked with `in` instead. */
-function hasCause(error: Error): error is Error & { cause?: unknown } {
-  return 'cause' in error;
-}
-
-function hasStringableCode(value: unknown): value is { code: unknown } {
-  return typeof value === 'object' && value !== null && 'code' in value;
-}
-
-const isOfflineError = (error: Error): boolean => {
-  if (
-    OFFLINE_MARKERS.some((marker) =>
-      `${error.name} ${error.message}`.toLowerCase().includes(marker),
-    )
-  ) {
-    return true;
-  }
-  const cause = hasCause(error) ? error.cause : undefined;
-  if (hasStringableCode(cause)) {
-    return OFFLINE_CODES.has(String(cause.code));
-  }
-  return false;
-};
+const isOfflineError = (error: Error): boolean =>
+  OFFLINE_MARKERS.some((marker) => `${error.name} ${error.message}`.toLowerCase().includes(marker));
 
 /** Maps anything thrown by the client into a `DaemonFailure`. */
 export const toDaemonFailure = (cause: unknown): DaemonFailure => {

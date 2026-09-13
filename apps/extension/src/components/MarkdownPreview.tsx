@@ -7,8 +7,7 @@ import { cn } from '#lib/utils.ts';
  * A saved document starts with YAML frontmatter. Markdown has no rule for it,
  * so `marked` would render the opening `---` as a horizontal rule and the keys
  * as a paragraph. The preview shows the document, not its metadata, so the
- * block is removed before rendering. `MarkdownSource` keeps it: there the point
- * is to see the file exactly as it is written.
+ * block is removed before rendering.
  */
 const FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/u;
 
@@ -24,19 +23,9 @@ const stripFrontmatter = (markdown: string): string => markdown.replace(FRONTMAT
 const toHtml = (markdown: string): string =>
   sanitize(marked(stripFrontmatter(markdown), { async: false, gfm: true }));
 
-type MarkdownSourceProps = {
+type MarkdownPreviewProps = {
   className?: string;
   markdown: string;
-};
-
-/** The markdown exactly as it will be written to disk. */
-export const MarkdownSource = ({ className, markdown }: MarkdownSourceProps) => (
-  <pre className={cn('m-0 font-mono text-xs whitespace-pre-wrap', className)}>{markdown}</pre>
-);
-
-type MarkdownPreviewProps = MarkdownSourceProps & {
-  /** `source` shows the raw markdown; `rendered` shows it as a document. */
-  mode?: 'rendered' | 'source';
 };
 
 /**
@@ -45,16 +34,8 @@ type MarkdownPreviewProps = MarkdownSourceProps & {
  * Typography comes from the `prose` plugin, with headings forced onto the mono
  * heading face so the preview matches the rest of the interface.
  */
-export const MarkdownPreview = ({
-  className,
-  markdown,
-  mode = 'rendered',
-}: MarkdownPreviewProps) => {
-  const html = useMemo(() => (mode === 'rendered' ? toHtml(markdown) : ''), [markdown, mode]);
-
-  if (mode === 'source') {
-    return <MarkdownSource className={className} markdown={markdown} />;
-  }
+export const MarkdownPreview = ({ className, markdown }: MarkdownPreviewProps) => {
+  const html = useMemo(() => toHtml(markdown), [markdown]);
 
   return (
     <div

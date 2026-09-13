@@ -15,55 +15,24 @@ type DownloadMarkdownCallbacks = {
 const yamlScalar = (value: string): string =>
   `"${value.replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll('\r', '').replaceAll('\n', '\\n')}"`;
 
-const yamlStringArray = (values: readonly string[]): string =>
-  `[${values.map(yamlScalar).join(', ')}]`;
-
-/** Repository metadata, present only when a clip is bound for the daemon. */
-export type ClipMeta = {
-  categories?: readonly string[];
-  generator?: string;
-  tags?: readonly string[];
-  updated?: string;
-  urlKey?: string;
-};
-
 /**
- * Renders a clip as a markdown document with YAML frontmatter.
- *
- * With `meta` omitted the output is byte-identical to what Machdown has always
- * written — same four keys, same order — so the ZIP export, the clipboard, and
- * every previously saved file stay consistent. Optional keys are appended
- * after those four rather than interleaved, for the same reason.
+ * Renders a clip as a markdown document with YAML frontmatter: the same four
+ * keys in the same order for the ZIP export, the clipboard, and the download.
+ * The daemon writes its own richer frontmatter for repository clips.
  */
-export const generateMarkdown = (clip: ClipResult, meta: ClipMeta = {}): string => {
-  const lines = [
+export const generateMarkdown = (clip: ClipResult): string =>
+  [
     '---',
     `title: ${yamlScalar(clip.title)}`,
     `url: ${clip.url}`,
     `site: ${clip.siteName}`,
     `clipped: ${clip.clippedAt}`,
-  ];
-
-  if (meta.updated) {
-    lines.push(`updated: ${meta.updated}`);
-  }
-  if (meta.urlKey) {
-    lines.push(`url_key: ${meta.urlKey}`);
-  }
-  if (meta.categories?.length) {
-    lines.push(`categories: ${yamlStringArray(meta.categories)}`);
-  }
-  if (meta.tags?.length) {
-    lines.push(`tags: ${yamlStringArray(meta.tags)}`);
-  }
-  if (meta.generator) {
-    lines.push(`generator: ${meta.generator}`);
-  }
-
-  lines.push('---', '', '');
-
-  return `${lines.join('\n')}# ${clip.title}\n\n${clip.markdown}`;
-};
+    '---',
+    '',
+    `# ${clip.title}`,
+    '',
+    clip.markdown,
+  ].join('\n');
 
 export const slugify = (text: string): string =>
   text

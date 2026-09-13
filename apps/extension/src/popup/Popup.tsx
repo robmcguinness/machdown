@@ -567,7 +567,6 @@ export const Popup = () => {
                   <MarkdownPreview
                     className='text-xs [&_h1]:hidden'
                     markdown={state.clip.markdown}
-                    mode='rendered'
                   />
                   <div className='pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-linear-to-t from-background to-transparent' />
                 </div>

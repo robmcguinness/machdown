@@ -1,56 +1,25 @@
 import type { AppSettings } from './appTypes';
 
-const getSystemPrefersDark = () => {
-  if (typeof window === 'undefined' || !window.matchMedia) {
-    return false;
-  }
-  return window.matchMedia('(prefers-color-scheme: dark)').matches;
-};
+const DARK_SCHEME = '(prefers-color-scheme: dark)';
 
+/** Applies theme and scale to the document; returns the cleanup for the OS-theme listener. */
 export const watchAppSettings = (settings: AppSettings) => {
-  if (typeof document === 'undefined') {
-    return () => {};
-  }
-
   const root = document.documentElement;
   const applyTheme = () => {
     const wantsDark =
-      settings.theme === 'dark' || (settings.theme === 'system' && getSystemPrefersDark());
+      settings.theme === 'dark' ||
+      (settings.theme === 'system' && window.matchMedia(DARK_SCHEME).matches);
     root.classList.toggle('dark', wantsDark);
   };
 
   root.style.setProperty('--app-scale', String(settings.scale));
   applyTheme();
 
-  if (typeof window === 'undefined' || !window.matchMedia || settings.theme !== 'system') {
+  if (settings.theme !== 'system') {
     return () => {};
   }
 
-  const media = window.matchMedia('(prefers-color-scheme: dark)');
-  const handler = () => applyTheme();
-  if (media.addEventListener) {
-    media.addEventListener('change', handler);
-    return () => media.removeEventListener('change', handler);
-  }
-  // Pre-Safari-14 fallback, narrowed by an `in` check rather than a cast
-  // through `unknown`.
-  if (hasLegacyListeners(media)) {
-    // Read through a binding typed as the plain (non-deprecated-by-name)
-    // LegacyMediaQueryList, not the MediaQueryList & LegacyMediaQueryList the
-    // guard above narrows to: that intersection still carries
-    // MediaQueryList's own deprecated addListener/removeListener overloads.
-    const legacy: LegacyMediaQueryList = media;
-    legacy.addListener?.(handler);
-    return () => legacy.removeListener?.(handler);
-  }
-  return () => {};
+  const media = window.matchMedia(DARK_SCHEME);
+  media.addEventListener('change', applyTheme);
+  return () => media.removeEventListener('change', applyTheme);
 };
-
-type LegacyMediaQueryList = {
-  addListener?: (listener: () => void) => void;
-  removeListener?: (listener: () => void) => void;
-};
-
-function hasLegacyListeners(value: MediaQueryList): value is MediaQueryList & LegacyMediaQueryList {
-  return 'addListener' in value;
-}

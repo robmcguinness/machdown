@@ -2,11 +2,9 @@
 import { type AppMessage, type AppState, DEFAULT_STATE, applyDefaults } from '#common/appTypes.ts';
 import { runAsync } from '#lib/async.ts';
 
-type CSClient = { port: chrome.runtime.Port; tabId: number };
 type AppClient = { port: chrome.runtime.Port };
 
 const appClients = new Set<AppClient>();
-const csByTab = new Map<number, CSClient>();
 
 const safePostMessage = (port: chrome.runtime.Port, message: AppMessage) => {
   try {
@@ -49,52 +47,32 @@ const persistState = () => {
 };
 
 chrome.runtime.onConnect.addListener((port) => {
-  const who = port.name;
-  const tabId = port.sender?.tab?.id ?? null;
+  if (port.name !== 'app') {
+    return;
+  }
 
-  if (who === 'app') {
-    const app: AppClient = { port };
-    appClients.add(app);
-    //console.log('App connected, total app clients:', appClients.size);
+  const app: AppClient = { port };
+  appClients.add(app);
 
-    runAsync(async () => {
-      await ensureStateLoaded();
+  runAsync(async () => {
+    await ensureStateLoaded();
+    safePostMessage(port, { payload: appState, type: 'state:response' });
+  });
+
+  port.onMessage.addListener((message: AppMessage) => {
+    if (message.type === 'state:request') {
       safePostMessage(port, { payload: appState, type: 'state:response' });
-    });
+      return;
+    }
 
-    port.onMessage.addListener((message: AppMessage) => {
-      if (message.type === 'state:request') {
-        safePostMessage(port, { payload: appState, type: 'state:response' });
-        return;
-      }
+    if (message.type === 'state:update') {
+      appState = applyDefaults(message.payload);
+      persistState();
+      broadcastToApps({ payload: appState, type: 'state:update' });
+    }
+  });
 
-      if (message.type === 'state:update') {
-        const incoming = applyDefaults(message.payload);
-        const nextSettings = incoming.settings ?? appState.settings;
-        const nextState: AppState = {
-          ...appState,
-          ...incoming,
-          settings: nextSettings,
-        };
-        appState = nextState;
-        persistState();
-        broadcastToApps({ payload: appState, type: 'state:update' });
-      }
-    });
-
-    port.onDisconnect.addListener(() => {
-      appClients.delete(app);
-      //console.log('App disconnected, total app clients:', appClients.size);
-    });
-  }
-
-  if (who === 'content-script' && tabId !== null) {
-    const cs: CSClient = { port, tabId };
-    csByTab.set(tabId, cs);
-    //console.log(`CS connected for tab ${tabId}, total CS:`, csByTab.size);
-    port.onDisconnect.addListener(() => {
-      csByTab.delete(tabId);
-      //console.log(`CS disconnected for tab ${tabId}, total CS:`, csByTab.size);
-    });
-  }
+  port.onDisconnect.addListener(() => {
+    appClients.delete(app);
+  });
 });
