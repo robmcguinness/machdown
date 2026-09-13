@@ -1,4 +1,4 @@
-import type { AppSettings, SaveTarget } from '#common/appTypes.ts';
+import type { AppSettings } from '#common/appTypes.ts';
 import { Alert, AlertDescription, AlertTitle } from '#components/ui/alert.tsx';
 import { Card, CardContent } from '#components/ui/card.tsx';
 import {
@@ -32,9 +32,7 @@ import { TriangleAlert } from 'lucide-react';
 import { X } from 'lucide-react';
 import { cn } from '#lib/utils.ts';
 import { toast } from 'sonner';
-import { isOneOf } from '#lib/select.ts';
 
-const SAVE_TARGETS = ['auto', 'repo', 'download'] as const satisfies readonly SaveTarget[];
 import type { UseDaemonStatus } from '#common/useDaemonStatus.ts';
 import { asHandler } from '#lib/async.ts';
 
@@ -655,34 +653,6 @@ export const RepositorySection = ({ daemon, settings, updateSettings }: Reposito
               </Button>
             </Field>
           </FieldGroup>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent>
-          <Field>
-            <FieldLabel htmlFor='save-target'>Where to save clips</FieldLabel>
-            <Select
-              value={settings.saveTarget}
-              onValueChange={(value) => {
-                if (isOneOf(SAVE_TARGETS, value)) {
-                  updateSettings({ saveTarget: value });
-                }
-              }}
-            >
-              <SelectTrigger className='w-full' id='save-target'>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value='auto'>Repository when available, otherwise download</SelectItem>
-                <SelectItem value='repo'>Always the repository</SelectItem>
-                <SelectItem value='download'>Always a browser download</SelectItem>
-              </SelectContent>
-            </Select>
-            <FieldDescription>
-              On <strong>auto</strong>, a stopped daemon silently falls back to the download dialog.
-            </FieldDescription>
-          </Field>
         </CardContent>
       </Card>
     </>

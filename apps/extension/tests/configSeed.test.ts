@@ -12,7 +12,6 @@ for (const suggestCategories of [false, true]) {
       daemonBaseUrl: 'http://127.0.0.1:42000',
       defaultCategory: 'Recipes',
       lastUsedCategories: ['Research'],
-      saveTarget: 'download',
       suggestCategories,
       theme: 'dark',
     };

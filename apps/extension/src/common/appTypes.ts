@@ -8,14 +8,6 @@ import type { FilenamePattern } from '@machdown/contract';
 
 export type { FilenamePattern };
 
-/**
- * Where a clip goes when you hit save.
- * - `auto`    — the repo when the daemon is reachable, a download otherwise
- * - `repo`    — the repo, surfacing an error if the daemon is down
- * - `download` — always the browser download dialog
- */
-export type SaveTarget = 'auto' | 'repo' | 'download';
-
 export type AppSettings = {
   // Appearance
   scale: number;
@@ -41,7 +33,6 @@ export type AppSettings = {
   suggestCategories: boolean;
   /** Pre-selected in the popup so consecutive clips are one click. */
   lastUsedCategories: string[];
-  saveTarget: SaveTarget;
   /** Base URL only — the pairing token lives under its own storage key. */
   daemonBaseUrl: string;
 };
@@ -80,7 +71,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   daemonBaseUrl: DEFAULT_DAEMON_BASE_URL,
   defaultCategory: UNCATEGORIZED,
   lastUsedCategories: [],
-  saveTarget: 'auto',
   suggestCategories: true,
 };
 

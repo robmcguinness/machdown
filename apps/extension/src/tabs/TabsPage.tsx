@@ -8,10 +8,11 @@ import type {
   SaveClipsResult,
   SuggestItem,
 } from '@machdown/contract';
-import type { ClipResponse, ClipResult, ClipSettings } from '#types/clip.ts';
+import type { ClipSettings } from '#types/clip.ts';
 import { Popover, PopoverContent, PopoverTrigger } from '#components/ui/popover.tsx';
 import { buildFilename, downloadTabLinks, generateMarkdown } from '#lib/markdown.ts';
 import { describeFailure, toDaemonFailure } from '#common/daemonClient.ts';
+import { clipTab, hostOf, toClipPayload } from '#common/clipTab.ts';
 import { getHostPermissionPattern } from '#common/pageTarget.ts';
 import { strToU8 } from 'fflate';
 import { zipFiles, type ZipFiles } from '#lib/zip.ts';
@@ -69,31 +70,6 @@ type Mode = 'clip' | 'bookmark';
 /** The option-group heading, shared with the search page's filter panel. */
 const GROUP_LABEL = 'font-heading text-xs tracking-wider text-muted-foreground uppercase';
 
-/** Display-only site name for the suggestion request. */
-const hostOf = (url: string): string => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return '';
-  }
-};
-
-const toClipPayload = (
-  clip: ClipResult,
-  categories: readonly string[],
-  filenamePattern: AppSettings['filenamePattern'],
-): ClipPayload => ({
-  categories: [...categories],
-  clippedAt: clip.clippedAt,
-  excerpt: clip.excerpt ?? '',
-  filenamePattern,
-  markdown: clip.markdown,
-  mode: clip.mode,
-  siteName: clip.siteName,
-  title: clip.title,
-  url: clip.url,
-});
-
 const toClipSettings = (s: AppSettings): ClipSettings => ({
   bulletListMarker: s.bulletListMarker,
   codeBlockStyle: s.codeBlockStyle,
@@ -103,26 +79,6 @@ const toClipSettings = (s: AppSettings): ClipSettings => ({
   includeImages: s.includeImages,
   linkStyle: s.linkStyle,
 });
-
-const clipTab = async (tabId: number, clipSettings: ClipSettings): Promise<ClipResult> => {
-  await chrome.scripting.executeScript({
-    files: ['clipper.js'],
-    target: { tabId },
-  });
-
-  const response = await chrome.tabs.sendMessage<
-    { settings?: ClipSettings; type: string },
-    ClipResponse
-  >(tabId, {
-    settings: clipSettings,
-    type: 'clip:extract',
-  });
-
-  if (response.type === 'clip:result') {
-    return response.payload;
-  }
-  throw new Error(response.error);
-};
 
 export const TabsPage = () => {
   const [tabs, setTabs] = useState<TabEntry[]>([]);
