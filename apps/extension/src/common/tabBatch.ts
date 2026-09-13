@@ -67,10 +67,10 @@ export const extractTabs = async <T extends BatchTab>(
  * Zipped on the main thread: a batch is a few megabytes of markdown at most,
  * which deflates in milliseconds, and the page is showing a progress state.
  */
-export const downloadClipsZip = (
+export const downloadClipsZip = async (
   clips: readonly { clip: ClipResult; tab: BatchTab }[],
   filenamePattern: FilenamePattern,
-): void => {
+): Promise<void> => {
   const files: Record<string, Uint8Array> = {};
   const usedNames = new Set<string>();
   for (const { clip, tab } of clips) {
@@ -86,9 +86,11 @@ export const downloadClipsZip = (
   const zipped = zipSync(files);
   const url = URL.createObjectURL(new Blob([zipped], { type: 'application/zip' }));
   const date = new Date().toISOString().slice(0, 10);
-  chrome.downloads.download({ filename: `tabs-${date}.zip`, saveAs: true, url }, () => {
+  try {
+    await chrome.downloads.download({ filename: `tabs-${date}.zip`, saveAs: true, url });
+  } finally {
     URL.revokeObjectURL(url);
-  });
+  }
 };
 
 /** The tabs as bookmark lines, the shape both the daemon and the download take. */

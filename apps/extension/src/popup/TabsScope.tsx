@@ -209,7 +209,7 @@ export const TabsScope = ({
       }
 
       setProgress('Compressing…');
-      downloadClipsZip(clips, settings.filenamePattern);
+      await downloadClipsZip(clips, settings.filenamePattern);
 
       reportErrors(errors);
       finish('download', settings.autoClosePopup && errors.length === 0);

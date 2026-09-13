@@ -74,7 +74,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
   suggestCategories: true,
 };
 
-/** Bump alongside a new entry in {@link MIGRATIONS}. */
+/**
+ * Bump when persisted state needs reshaping, and branch on the old value in
+ * {@link applyDefaults}. Adding a field needs no bump: the default merge
+ * supplies it.
+ */
 export const STATE_VERSION = 1;
 
 export const DEFAULT_STATE: AppState = {
@@ -82,43 +86,8 @@ export const DEFAULT_STATE: AppState = {
   version: STATE_VERSION,
 };
 
-/**
- * Keyed by the version being migrated *from*. State written before versioning
- * existed has no `version` field and is treated as 0.
- *
- * Migrations run *after* defaults are merged in, so a step that only adds new
- * fields needs no entry here — it would overwrite real values with defaults.
- * Only reshaping or reinterpreting existing data belongs in this table.
- */
-const MIGRATIONS = new Map<number, (state: AppState) => AppState>([
-  // v0 -> v1 added the repository fields, which the default merge supplies.
-  [0, (state) => ({ ...state, version: 1 })],
-]);
-
-/**
- * Fills in defaults and brings persisted state up to {@link STATE_VERSION}.
- * Keeps its original name so every existing call site is unchanged.
- */
-export const applyDefaults = (state: Partial<AppState>): AppState => {
-  let current: AppState = {
-    ...DEFAULT_STATE,
-    ...state,
-    settings: {
-      ...DEFAULT_SETTINGS,
-      ...state.settings,
-    },
-    version: state.version ?? 0,
-  };
-
-  while (current.version < STATE_VERSION) {
-    const migrate = MIGRATIONS.get(current.version);
-    if (!migrate) {
-      // Unknown version: fall forward rather than loop, defaults already applied.
-      current.version = STATE_VERSION;
-      break;
-    }
-    current = migrate(current);
-  }
-
-  return current;
-};
+/** Fills in defaults for anything a persisted state is missing. */
+export const applyDefaults = (state: Partial<AppState>): AppState => ({
+  settings: { ...DEFAULT_SETTINGS, ...state.settings },
+  version: STATE_VERSION,
+});

@@ -253,16 +253,17 @@ export const Popup = () => {
   const handleCreateCategory = useCreateCategory(client, settings, setSettings);
 
   /** The clip as a file in the browser's downloads folder. Never needs the daemon. */
-  const handleDownload = useCallback(() => {
+  const handleDownload = useCallback(async () => {
     if (state.status !== 'done') {
       return;
     }
     start('download');
-    downloadMarkdown(state.clip, {
-      onError: (error) => fail(error.message),
-      onSuccess: () => finish('download', settings.autoClosePopup),
-      settings: { filenamePattern: settings.filenamePattern },
-    });
+    try {
+      await downloadMarkdown(state.clip, settings.filenamePattern);
+      finish('download', settings.autoClosePopup);
+    } catch (error) {
+      fail(error instanceof Error ? error.message : 'Download could not be started');
+    }
   }, [state, settings.filenamePattern, settings.autoClosePopup, start, fail, finish]);
 
   /** The clip into the repository, filed under the chosen categories. */
@@ -360,7 +361,7 @@ export const Popup = () => {
     {
       onBookmark: ready && !busy ? asHandler(handleBookmark) : null,
       onCopy: ready && !busy ? asHandler(handleCopy) : null,
-      onDownload: ready && !busy ? handleDownload : null,
+      onDownload: ready && !busy ? asHandler(handleDownload) : null,
       onSave: canSaveClip ? asHandler(handleSaveToRepo) : null,
     },
     scope === 'page',
@@ -614,7 +615,7 @@ export const Popup = () => {
               disabled: !ready || busy,
               doneLabel: 'Downloaded',
               label: 'Download',
-              onClick: handleDownload,
+              onClick: asHandler(handleDownload),
               status: statusOf('download'),
               title: 'Save the markdown file to your downloads folder (⌘D)',
             }}

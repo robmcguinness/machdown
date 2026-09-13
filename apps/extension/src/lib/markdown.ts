@@ -1,10 +1,5 @@
-import type { AppSettings, FilenamePattern } from '#common/appTypes.ts';
+import type { FilenamePattern } from '#common/appTypes.ts';
 import type { ClipResult } from '#types/clip.ts';
-
-type DownloadMarkdownCallbacks = {
-  onError?: (error: Error) => void;
-  onSuccess?: () => void;
-};
 
 /**
  * Quotes a YAML scalar.
@@ -59,32 +54,18 @@ export const buildFilename = (clip: ClipResult, pattern: FilenamePattern = '{slu
   }
 };
 
-type DownloadOptions = DownloadMarkdownCallbacks & {
-  settings?: Pick<AppSettings, 'filenamePattern'>;
-};
+const markdownDataUrl = (md: string) =>
+  `data:text/markdown;charset=utf-8,${encodeURIComponent(md)}`;
 
-/** Chrome's own type says this is always `number`, but the callback
- * genuinely receives `undefined` when the download could not start. */
-const isDownloadId = (value: unknown): value is number => typeof value === 'number';
-
-export const downloadMarkdown = (clip: ClipResult, options: DownloadOptions = {}) => {
-  const { onError, onSuccess, settings } = options;
-  const md = generateMarkdown(clip);
-  const filename = `${buildFilename(clip, settings?.filenamePattern)}.md`;
-  const url = `data:text/markdown;charset=utf-8,${encodeURIComponent(md)}`;
-
-  chrome.downloads.download({ filename, saveAs: true, url }, (downloadId) => {
-    if (chrome.runtime.lastError) {
-      onError?.(new Error(chrome.runtime.lastError.message));
-      return;
-    }
-
-    if (!isDownloadId(downloadId)) {
-      onError?.(new Error('Download could not be started'));
-      return;
-    }
-
-    onSuccess?.();
+/** Resolves once the download has started; rejects with Chrome's reason when it could not. */
+export const downloadMarkdown = async (
+  clip: ClipResult,
+  filenamePattern?: FilenamePattern,
+): Promise<void> => {
+  await chrome.downloads.download({
+    filename: `${buildFilename(clip, filenamePattern)}.md`,
+    saveAs: true,
+    url: markdownDataUrl(generateMarkdown(clip)),
   });
 };
 
@@ -125,23 +106,11 @@ export const buildTabLinksMarkdown = (
 };
 
 /** Downloads every link as a single `bookmarks-<date>.md` file. */
-export const downloadTabLinks = (tabs: readonly TabLink[]): Promise<void> => {
+export const downloadTabLinks = async (tabs: readonly TabLink[]): Promise<void> => {
   const now = new Date();
-  const md = buildTabLinksMarkdown(tabs, now);
-  const filename = `bookmarks-${now.toISOString().slice(0, 10)}.md`;
-  const url = `data:text/markdown;charset=utf-8,${encodeURIComponent(md)}`;
-
-  return new Promise((resolve, reject) => {
-    chrome.downloads.download({ filename, saveAs: true, url }, (downloadId) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-      if (!isDownloadId(downloadId)) {
-        reject(new Error('Download could not be started'));
-        return;
-      }
-      resolve();
-    });
+  await chrome.downloads.download({
+    filename: `bookmarks-${now.toISOString().slice(0, 10)}.md`,
+    saveAs: true,
+    url: markdownDataUrl(buildTabLinksMarkdown(tabs, now)),
   });
 };

@@ -1,13 +1,14 @@
 import type { ComponentProps } from 'react';
 import { Toaster as RegistryToaster } from '#components/ui/sonner.tsx';
-import { useDarkClass } from '#common/useDarkClass.ts';
+import { useSharedSettings } from '#common/useSharedSettings.ts';
 
 /**
- * Follows the extension's own `.dark` class, not `next-themes`. The registry
- * Toaster spreads its props after its own `theme`, so this `theme` wins.
+ * Follows the extension's own theme setting, not `next-themes`. Sonner resolves
+ * `system` against the OS itself. The registry Toaster spreads its props after
+ * its own `theme`, so this `theme` wins.
  */
 export const Toaster = (props: ComponentProps<typeof RegistryToaster>) => {
-  const dark = useDarkClass();
+  const { settings } = useSharedSettings();
 
-  return <RegistryToaster theme={dark ? 'dark' : 'light'} {...props} />;
+  return <RegistryToaster theme={settings.theme} {...props} />;
 };

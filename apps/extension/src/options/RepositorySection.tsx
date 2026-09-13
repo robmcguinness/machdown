@@ -21,7 +21,6 @@ import {
 } from '#components/ui/select.tsx';
 import { describeFailure, toDaemonFailure } from '#common/daemonClient.ts';
 import { validateCategory } from '#common/categories.ts';
-import { configSeedFromSettings } from '#common/configSeed.ts';
 import { clearPairing, getExtensionId, savePairing } from '#common/daemonStorage.ts';
 import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '#components/ui/badge.tsx';
@@ -121,7 +120,11 @@ export const RepositorySection = ({ daemon, settings, updateSettings }: Reposito
       // keeping the repository authoritative (D4).
       const result = await client.repo.init({
         adoptFlatClips: adopt,
-        config: configSeedFromSettings(settings),
+        config: {
+          categories: settings.categories,
+          defaultCategory: settings.defaultCategory,
+          suggestCategories: settings.suggestCategories,
+        },
         path: repoPath.trim(),
       });
 

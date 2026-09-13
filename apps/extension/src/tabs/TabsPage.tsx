@@ -229,7 +229,7 @@ export const TabsPage = () => {
     if (clips.length > 0) {
       setExportState({ errors: [...errors], phase: 'compressing', total: clips.length });
       try {
-        downloadClipsZip(clips, settings.filenamePattern);
+        await downloadClipsZip(clips, settings.filenamePattern);
       } catch (error) {
         errors.push(error instanceof Error ? error.message : 'ZIP compression failed');
       }
