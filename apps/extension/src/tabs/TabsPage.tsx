@@ -9,6 +9,14 @@ import {
   useTabSuggestions,
 } from '#common/tabBatch.ts';
 import { Popover, PopoverContent, PopoverTrigger } from '#components/ui/popover.tsx';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '#components/ui/dropdown-menu.tsx';
+import { ButtonGroup } from '#components/ui/button-group.tsx';
 import { describeFailure, toDaemonFailure } from '#common/daemonClient.ts';
 import { downloadTabLinks } from '#lib/markdown.ts';
 import { hostOf, toClipPayload } from '#common/clipTab.ts';
@@ -19,7 +27,7 @@ import { Button } from '#components/ui/button.tsx';
 import { CategoryPicker } from '#components/CategoryPicker.tsx';
 import { Checkbox } from '#components/ui/checkbox.tsx';
 import { DaemonStatus } from '#components/DaemonStatus.tsx';
-import { Sparkles } from 'lucide-react';
+import { ChevronDown, FileText, Package, Sparkles } from 'lucide-react';
 import { Spinner } from '#components/ui/spinner.tsx';
 import { cn } from '#lib/utils.ts';
 import { plural } from '#lib/plural.ts';
@@ -284,10 +292,65 @@ export const TabsPage = () => {
     }
   }, [tabs, activeDestination, client]);
 
+  /**
+   * The download button's second format: every selected tab as one markdown
+   * file of links. Nothing is extracted, so like a bookmark batch it needs no
+   * host permission and finishes at once, whatever the tab count.
+   */
+  const handleDownloadLinks = useCallback(async () => {
+    const selected = tabs.filter((t) => t.selected);
+    if (selected.length === 0) {
+      return;
+    }
+
+    setExportState({ errors: [], phase: 'compressing', total: selected.length });
+    try {
+      await downloadTabLinks(
+        selected.map((tab) => ({ title: tab.title, url: tab.url })),
+        'tabs',
+      );
+      setExportState({ errors: [], phase: 'done' });
+    } catch (error) {
+      setExportState({
+        errors: [error instanceof Error ? error.message : 'Download could not be started'],
+        phase: 'done',
+      });
+    }
+  }, [tabs]);
+
   const isExporting =
     exportState.phase === 'clipping' ||
     exportState.phase === 'saving' ||
     exportState.phase === 'compressing';
+
+  const exportDisabled =
+    selectedCount === 0 ||
+    isExporting ||
+    // Only clips are filed under a category; a bookmark line has none.
+    (mode === 'clip' && activeDestination === 'repo' && activeCategories.length === 0);
+
+  const exportLabel = (
+    <>
+      {isExporting && <Spinner data-icon='inline-start' />}
+      {exportState.phase === 'clipping'
+        ? `Clipping ${exportState.current}/${exportState.total}...`
+        : exportState.phase === 'compressing'
+          ? 'Compressing…'
+          : exportState.phase === 'saving'
+            ? `Saving ${exportState.total}...`
+            : mode === 'bookmark'
+              ? activeDestination === 'repo'
+                ? `Bookmark ${plural(selectedCount, 'tab')}`
+                : 'Export Markdown'
+              : activeDestination === 'repo'
+                ? 'Save to repository'
+                : 'Export ZIP'}
+    </>
+  );
+
+  // The download destination offers two formats: the primary ZIP button plus a
+  // "single markdown of links" alternative. Both land in the Downloads folder.
+  const showDownloadFormats = mode === 'clip' && activeDestination === 'zip';
 
   return (
     <div className='flex h-full flex-col bg-background font-sans text-foreground'>
@@ -342,7 +405,7 @@ export const TabsPage = () => {
                       : 'The links are exported as one markdown file.'
                     : activeDestination === 'repo'
                       ? 'Every page is extracted and saved in a single commit.'
-                      : 'Every page is extracted and exported as a ZIP file.'}
+                      : 'Every page is extracted and exported as a ZIP file, or use the button menu for one markdown file of links.'}
                 </FieldDescription>
               </Field>
 
@@ -432,31 +495,50 @@ export const TabsPage = () => {
 
           {/* Pinned: the batch action must not move as the option list grows. */}
           <div className='flex shrink-0 flex-col gap-2 border-t p-4'>
-            <Button
-              disabled={
-                selectedCount === 0 ||
-                isExporting ||
-                // Only clips are filed under a category; a bookmark line has none.
-                (mode === 'clip' && activeDestination === 'repo' && activeCategories.length === 0)
-              }
-              className='w-full'
-              onClick={asHandler(mode === 'bookmark' ? handleBookmarkAll : handleExport)}
-            >
-              {isExporting && <Spinner data-icon='inline-start' />}
-              {exportState.phase === 'clipping'
-                ? `Clipping ${exportState.current}/${exportState.total}...`
-                : exportState.phase === 'compressing'
-                  ? 'Compressing…'
-                  : exportState.phase === 'saving'
-                    ? `Saving ${exportState.total}...`
-                    : mode === 'bookmark'
-                      ? activeDestination === 'repo'
-                        ? `Bookmark ${plural(selectedCount, 'tab')}`
-                        : 'Export Markdown'
-                      : activeDestination === 'repo'
-                        ? 'Save to repository'
-                        : 'Export ZIP'}
-            </Button>
+            {showDownloadFormats ? (
+              <ButtonGroup className='w-full'>
+                <Button
+                  className='flex-1'
+                  disabled={exportDisabled}
+                  onClick={asHandler(handleExport)}
+                >
+                  {exportLabel}
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        aria-label='Choose download format'
+                        disabled={exportDisabled}
+                        size='icon'
+                      />
+                    }
+                  >
+                    <ChevronDown />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align='end'>
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem onClick={asHandler(handleExport)}>
+                        <Package />
+                        ZIP of full clips
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={asHandler(handleDownloadLinks)}>
+                        <FileText />
+                        Single markdown of links
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </ButtonGroup>
+            ) : (
+              <Button
+                className='w-full'
+                disabled={exportDisabled}
+                onClick={asHandler(mode === 'bookmark' ? handleBookmarkAll : handleExport)}
+              >
+                {exportLabel}
+              </Button>
+            )}
             <span className='text-center text-xs text-muted-foreground'>
               {selectedCount} of {clippableCount} selected
             </span>

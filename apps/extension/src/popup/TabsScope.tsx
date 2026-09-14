@@ -230,6 +230,23 @@ export const TabsScope = ({
     finish,
   ]);
 
+  /** The same batch as one markdown file of links, straight to Downloads. */
+  const handleDownloadSingle = useCallback(async () => {
+    if (selected.length === 0) {
+      return;
+    }
+    start('download');
+    try {
+      await downloadTabLinks(
+        selected.map((tab) => ({ title: tab.title, url: tab.url })),
+        'tabs',
+      );
+      finish('download', settings.autoClosePopup);
+    } catch (error) {
+      fail(error instanceof Error ? error.message : 'Download could not be started');
+    }
+  }, [selected, start, finish, settings.autoClosePopup, fail]);
+
   const links = useMemo(() => tabLinks(selected), [selected]);
 
   /** Only the links: no extraction, no permission, one request whatever the count. */
@@ -363,6 +380,7 @@ export const TabsScope = ({
           doneLabel: `${n} files`,
           label: `Download · ${n}`,
           onClick: asHandler(handleDownload),
+          onSingleFile: asHandler(handleDownloadSingle),
           status: statusOf('download'),
           title: `Extract every selected tab and download one ZIP (⌘D)`,
         }}

@@ -105,11 +105,20 @@ export const buildTabLinksMarkdown = (
   return lines.join('\n');
 };
 
-/** Downloads every link as a single `bookmarks-<date>.md` file. */
-export const downloadTabLinks = async (tabs: readonly TabLink[]): Promise<void> => {
+/**
+ * Downloads every link as a single `<prefix>-<date>.md` file.
+ *
+ * The prefix names the batch: `bookmarks` for the bookmarks fallback, `tabs`
+ * for the download button's "single markdown" format. The file is the same
+ * either way — one `- [title](url)` line per tab.
+ */
+export const downloadTabLinks = async (
+  tabs: readonly TabLink[],
+  filePrefix: 'bookmarks' | 'tabs' = 'bookmarks',
+): Promise<void> => {
   const now = new Date();
   await chrome.downloads.download({
-    filename: `bookmarks-${now.toISOString().slice(0, 10)}.md`,
+    filename: `${filePrefix}-${now.toISOString().slice(0, 10)}.md`,
     saveAs: true,
     url: markdownDataUrl(buildTabLinksMarkdown(tabs, now)),
   });
